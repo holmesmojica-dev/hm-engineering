@@ -20,6 +20,10 @@ docs/
 
 Canonical domain specifications shared across HM projects.
 
+Domain specifications define the canonical concepts, semantics, and rules
+of the HM ecosystem. They are technology-agnostic and serve as the source
+of truth for implementation projects.
+
 ### Architecture
 
 Architecture documentation, design principles, and ecosystem-level guidance.
