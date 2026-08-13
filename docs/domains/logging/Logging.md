@@ -93,11 +93,30 @@ Metadata is part of the domain model, but its concrete representation must remai
 
 Supported metadata values must represent the **nature of the data**, rather than being defined around a programming-language-specific type system. Implementations must map their native types to the corresponding domain-level semantic types consistently.
 
+The supported metadata types are intentionally constrained to values that can be represented consistently across different providers, platforms, persistence technologies, and output media. This restriction exists to preserve interoperability and consistency when logging data is persisted, transported, printed, or otherwise represented.
+
+Types that have platform- or language-specific representations must be mapped to their corresponding domain-level representation. For example, values such as timestamps and GUIDs must use a representation that can be consistently serialized and consumed across implementations.
+
 The exact validation and normalization behavior of metadata is an implementation concern.
 
 ### Metadata null values
 
 Null metadata values are not retained in a normalized Log Entry or Log Context. They are removed during normalization to preserve data consistency.
+
+The same normalization principle applies to empty or whitespace-only values where the corresponding metadata value is considered textual and optional. These values are discarded rather than persisted, minimizing incomplete or inconsistent data while allowing the logging pipeline to remain resilient.
+
+### Metadata validation failures
+
+Not all invalid metadata is handled by silent normalization.
+
+Reserved Metadata Keys and unsupported metadata types violate the defined Metadata contract because allowing them could compromise the structural and persistence consistency of Log Entry data.
+
+Implementations may therefore reject these cases explicitly. In `Hm.Logging`, these conditions are represented as implementation-level exceptions and are documented as such by the corresponding APIs.
+
+This distinction is intentional:
+
+- `null`, empty, or whitespace-only values are normalized or discarded to preserve resilience and prevent incomplete data from reaching persistence.
+- Unsupported metadata types and Reserved Metadata Keys are explicit contract violations and are rejected so that inconsistent data is not silently persisted.
 
 ### Metadata reserved keys
 
