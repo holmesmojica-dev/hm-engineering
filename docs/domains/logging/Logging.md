@@ -62,7 +62,7 @@ A Log Context may contain contextual information represented by the domain's Log
 
 The domain defines the semantics of Log Context. The mechanism used to maintain, activate, nest, or dispose contexts is an implementation concern and is not part of this domain specification.
 
-In particular, the domain does not define remote concepts such as Logging Flows, Flow IDs, `PushScope`, or `PopScope`. Those belong to the distributed service and its communication contracts.
+In particular, the domain does not define remote concepts such as Logging Flows, Flow IDs, `PushScope`, or `PopScope`. Those belong to distributed service implementations and their communication contracts.
 
 ---
 
@@ -79,9 +79,13 @@ The HM Logging domain defines the following severity levels:
 - Error
 - Critical
 
-`Information` has the numeric value `0` and is the default Log Level.
+The severity levels are ordered from least severe to most severe:
 
-The numeric representation must remain consistent across HM Logging implementations that serialize or transport Log Level values.
+**Trace < Debug < Information < Warning < Error < Critical**
+
+`Information` is the default Log Level when no value is explicitly provided.
+
+The domain defines the semantic meaning and severity ordering of Log Levels. The numeric representation used to encode, serialize, or transport Log Level values is an implementation or contract concern and must not alter their semantic meaning.
 
 ---
 
@@ -176,7 +180,7 @@ The specific `BeginScope` API is an implementation-level concept of the Hm.Loggi
 
 The HM Logging domain does not define the mechanism used to transport or maintain context across process or service boundaries.
 
-Concepts such as Logging Flow, Flow ID, remote `PushScope`, and remote `PopScope` belong to the distributed logging service and its contracts. They must not be added to the core Log Entry model solely to support remote context management.
+Concepts such as Logging Flow, Flow ID, remote `PushScope`, and remote `PopScope` belong to distributed logging implementations and their contracts. They must not be added to the core Log Entry model solely to support remote context management.
 
 ---
 
@@ -184,7 +188,7 @@ Concepts such as Logging Flow, Flow ID, remote `PushScope`, and remote `PopScope
 
 The domain defines **what the data means and which properties are required**. It does not define every validation or normalization operation performed by an implementation.
 
-The following responsibilities belong to implementations such as Hm.Logging and, where applicable, Hm.Logging.Service:
+The following responsibilities belong to implementations:
 
 - validation of required values;
 - null and whitespace handling;
@@ -218,7 +222,7 @@ Every HM Logging implementation must comply with the following rules:
 10. Null metadata values are removed during normalization.
 11. Metadata types must represent semantic data types rather than language-specific implementation types.
 12. Reserved Metadata Keys correspond to Log Entry properties and are protected by implementations.
-13. `Information` is Log Level numeric value `0`.
+13. Log Levels are ordered by severity from Trace, the least severe level, to Critical, the most severe level.
 14. Domain concepts must remain independent of any particular programming language, transport, persistence technology, or distributed-service implementation.
 15. Every implementation must preserve the semantic meaning of the concepts defined in this specification.
 
@@ -230,7 +234,7 @@ The HM Logging domain is the foundation shared by the HM Logging ecosystem.
 
 The core `Hm.Logging` library may implement the domain locally, including Log Context and local scope management.
 
-A distributed logging service may build additional protocol-level capabilities on top of the domain, including remote scope management and Logging Flows.
+Distributed logging capabilities may build additional protocol-level capabilities on top of the domain, including remote scope management and Logging Flows.
 
 Those distributed capabilities must consume and preserve the domain model rather than modify the domain to accommodate transport-specific requirements.
 
@@ -238,10 +242,6 @@ Those distributed capabilities must consume and preserve the domain model rather
 
 # References
 
-This specification is implemented by HM Logging projects, including:
+This specification is the canonical domain definition for HM Logging implementations.
 
-- Hm.Logging
-- Hm.Logging.Contracts
-- Hm.Logging.Service
-
-The specific APIs, protocols, providers, and persistence mechanisms used by those projects are implementation concerns and are not defined by this document.
+The specific APIs, protocols, providers, and persistence mechanisms used by implementations are implementation concerns and are not defined by this document.
