@@ -4,7 +4,7 @@
 
 **Status:** Defined
 
-**Last Updated:** 2026-08-13
+**Last Updated:** 2026-09-17
 
 ---
 
@@ -38,7 +38,7 @@ A Log Entry is composed of the following properties:
 | Source | No | None | Logical origin of the event, such as the application, service, component, or module where the event was generated. |
 | TraceId | No | None | Technical identifier associated with the execution trace. |
 | CorrelationId | No | None | Identifier used to correlate related operations across requests, services, or business workflows. |
-| Exception | No | None | Serialized exception information represented as a JSON string. |
+| Exception | No | None | Textual representation of exception information intended for observability and diagnostics. |
 | Metadata | No | None | Collection of structured key-value pairs associated with the event. |
 
 ### Log Entry rules
@@ -143,15 +143,15 @@ Reserved-key validation is an implementation responsibility, but all HM Logging 
 
 ## Exception
 
-The `Exception` property contains serialized exception information as a JSON string.
+The `Exception` property contains a textual representation of exception information intended for observability and diagnostics.
 
-The JSON representation must contain the information required to represent the exception as textual observability data without requiring the consumer or provider to preserve the original exception type.
+The representation is stored as a string and is not required to follow a specific serialization format. It may contain plain text, JSON, or another textual representation produced by the originating application, language, or platform.
 
-The domain does not require the original programming-language exception type to be preserved.
+The domain does not require the original programming-language exception type to be preserved, nor does it require HM Logging implementations to parse, deserialize, or validate the internal format of the exception representation.
 
-Validation of whether the serialized string contains syntactically valid JSON is an implementation concern and is not a domain validation rule.
+The client or implementation originating the Log Entry is responsible for providing a representation containing the diagnostic information it considers relevant.
 
-This design allows exceptions originating from different platforms, languages, or custom exception types to be represented consistently.
+This design allows exception information originating from different programming languages, platforms, and exception models to be transported and persisted without coupling HM Logging to a language-specific exception type or serialization format.
 
 ---
 
@@ -197,7 +197,6 @@ The following responsibilities belong to implementations:
 - removal of null metadata values;
 - validation of supported metadata types;
 - validation of metadata reserved keys;
-- validation of serialized Exception JSON format;
 - validation of implementation-specific size or transport constraints.
 
 For string values subject to normalization, a null, empty, or whitespace-only value is normalized to `null` where the corresponding property is optional.
@@ -214,7 +213,7 @@ Every HM Logging implementation must comply with the following rules:
 2. Every Log Entry must contain a Log Level. If no value is explicitly provided, the default is Information.
 3. Every Log Entry must contain a Timestamp. A Timestamp is initialized by default when the Log Entry is created, but may be explicitly supplied or changed.
 4. Source, TraceId, CorrelationId, Exception, and Metadata are optional.
-5. Exception is represented as a serialized JSON string.
+5. Exception, when provided, is represented as textual exception information stored as a string.
 6. A Log Context provides contextual default values for Log Entries.
 7. Explicit Log Entry values override values supplied by the Log Context.
 8. Metadata from the Log Context and Log Entry is merged according to the property-precedence rule.
