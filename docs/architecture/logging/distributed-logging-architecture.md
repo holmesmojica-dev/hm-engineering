@@ -4,7 +4,7 @@
 
 | Property | Value |
 |---|---|
-| **Status** | Architecture defined; wire-level Contracts details still to be finalized |
+| **Status** | Architecture defined; Contracts v1 wire-level design finalized |
 | **Date** | 17 September 2026 |
 | **Scope** | Technology-independent distributed logging architecture |
 | **Relationship to domain** | Builds on HM Logging Domain without modifying its fundamental semantics |
@@ -63,7 +63,7 @@ CreateFlow()
 
 ### 5.2 CloseFlow
 
-Flow closure is explicit. CloseFlow terminates the addressed Flow. After closure, the Flow is no longer an active target for logging or scope operations. The exact transport response and error model are Contracts decisions.
+Flow closure is explicit. CloseFlow terminates the addressed Flow. After closure, the Flow is no longer an active target for scope operations. Flow-aware logging behavior for inactive Flows and the exact transport response/result model are defined by `docs/architecture/logging/contracts-architecture.md`.
 
 ```text
 CloseFlow(XYZ)
@@ -184,7 +184,7 @@ For PopScope with ExpectedContext, if the first request never reached the Servic
 
 ## 11. Failure and Invalid-State Semantics
 
-The architecture recognizes that operations may target unknown, closed, expired or otherwise unavailable FlowIds. It also recognizes invalid state transitions such as PopScope against an empty stack. Exact gRPC status codes, response payloads and retry semantics remain Contracts design decisions.
+The architecture recognizes that operations may target unknown, closed, expired or otherwise unavailable FlowIds. It also recognizes invalid state transitions such as PopScope against an empty stack. Exact gRPC status codes, response payloads and retry semantics are defined by `docs/architecture/logging/contracts-architecture.md`.
 
 A distributed implementation must not silently reinterpret one Flow as another or recreate an unknown Flow implicitly. Explicit Flow identity and lifecycle are architectural invariants.
 
@@ -268,7 +268,7 @@ This architecture intentionally avoids declaring a permanent list of components 
 
 ## 17. Compatibility and Evolution Principles
 
-The public distributed contract must evolve without changing the meaning of established Flow operations. Wire-level versioning, field numbering, enum representation, optionality and backward/forward compatibility will be finalized during Hm.Logging.Contracts design.
+The public distributed contract must evolve without changing the meaning of established Flow operations. Wire-level versioning, field numbering, enum representation, optionality and backward/forward compatibility for Contracts v1 are defined by `docs/architecture/logging/contracts-architecture.md`.
 
 Because non-.NET clients are an explicit requirement, protocol decisions must be evaluated for cross-language protobuf behavior rather than only for generated C# ergonomics.
 
@@ -294,19 +294,13 @@ Because non-.NET clients are an explicit requirement, protocol decisions must be
 
 ## 19. Open Design Items
 
-- Exact protobuf message schemas and RPC signatures.
-- Wire representation and versioning namespace for Hm.Logging.Contracts.
-- LogLevel presence/default representation.
-- Timestamp presence/default behavior.
-- Cross-language Metadata value model.
-- FlowId wire representation.
-- CreateFlow/CloseFlow/PushScope/PopScope acknowledgement payloads.
-- Unknown, closed and expired Flow error/status model.
-- PopScope behavior on an empty stack.
+The Contracts v1 wire-level decisions previously tracked here are now defined by `docs/architecture/logging/contracts-architecture.md`.
+
+The remaining open items belong to the distributed runtime / `Hm.Logging.Service` design:
+
 - Exact Service implementation mechanism for per-Flow serialization (lock, actor, queue, or equivalent).
-- Exact protobuf representation of established retry/idempotency outcomes and acknowledgement payloads.
 - Flow ownership/authorization model.
-- Which valid operations refresh inactivity and how expiration is surfaced.
+- Which valid operations refresh inactivity and the operational expiration policy.
 - Persistence/recovery behavior across distributed runtime restarts.
 
 ## 20. Terminology
@@ -324,4 +318,4 @@ Because non-.NET clients are an explicit requirement, protocol decisions must be
 
 ## 21. Current Architectural Baseline
 
-This document is the current baseline for distributed logging design before implementation work begins in Hm.Logging.Contracts. The remaining open items are expected to be resolved during Contracts design before Codex receives implementation instructions. Later implementation details may refine operational behavior, but changes to the established invariants above should be treated as explicit architectural decisions rather than incidental code changes.
+This document is the current baseline for distributed logging architecture. Contracts v1 wire-level decisions are defined by `docs/architecture/logging/contracts-architecture.md`. The remaining open items are Service/runtime concerns and do not block implementation of `Hm.Logging.Contracts`. Later implementation details may refine operational behavior, but changes to the established invariants above should be treated as explicit architectural decisions rather than incidental code changes.
