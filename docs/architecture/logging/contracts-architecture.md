@@ -4,7 +4,7 @@
 **Protocol:** `hm.logging.contracts.v1`\
 **NuGet package:** `HDev.Hm.Logging.Contracts`\
 **Status:** Architecture baseline for Contracts v1\
-**Date:** 17 September 2026
+**Date:** 19 September 2026
 
 ------------------------------------------------------------------------
 
@@ -188,6 +188,27 @@ Once protocol v1 becomes stable:
 
 During preview, the schema may evolve before stable release, but
 protocol/package major coherence must still be preserved.
+
+### 4.5 .NET target and schema distribution
+
+The initial `Hm.Logging.Contracts` implementation targets `net10.0`, aligned
+with the HM .NET ecosystem baseline. Contracts remains language-neutral at the
+protocol level even though the official package initially targets .NET 10.
+
+HM-owned `.proto` schemas are the canonical protocol source and must be
+included in the `HDev.Hm.Logging.Contracts` NuGet package alongside the
+compiled .NET protobuf/gRPC types. The schemas distributed with a package
+release must correspond exactly to that package version.
+
+The canonical `google.type.Decimal` definition remains owned by Google Common
+Protos. HM Logging must not fork or redefine that schema as an HM-owned type.
+The .NET implementation uses the canonical Google Common Protos support needed
+for `Google.Type.Decimal`, while protobuf compilation resolves the canonical
+`google/type/decimal.proto` import through the package/source import mechanism.
+
+Official non-.NET SDKs are outside the current Contracts scope. Non-.NET
+consumers may use the published language-neutral schemas to generate and
+maintain clients in their own language/toolchain.
 
 ------------------------------------------------------------------------
 
@@ -474,6 +495,87 @@ parsing, canonicalization, and conversion.
 
 Codex must not replace decimal with `double`, an HM-owned decimal wire
 type, or another lossy representation.
+
+For .NET semantic conversion, an inbound `decimal_value` is valid only when it
+can be converted to `System.Decimal` without loss of value. Contracts-owned
+conversion must use the canonical Google decimal conversion behavior rather
+than implementing an independent decimal parser. Malformed values, values
+outside the `System.Decimal` range, and values whose conversion would lose the
+supplied decimal value are invalid representations and must be rejected by the
+operation before any log is written or Flow state is mutated.
+
+### 8.3 UUID
+
+`uuid_value` preserves the UUID semantic category independently of any
+language-specific UUID/GUID type.
+
+A supplied UUID must use the canonical hyphenated 36-character representation:
+
+``` text
+xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+```
+
+Hexadecimal characters are accepted case-insensitively and the normalized
+representation is lowercase. Contracts does not impose a UUID version or
+variant restriction beyond validity of the UUID representation.
+
+### 8.4 Enum
+
+`enum_value` preserves that the originating metadata value belonged to the
+enum semantic category even though its native enum type is not transported.
+The wire representation is textual.
+
+Contracts does not attempt to reconstruct or validate the originating enum
+type, its declared members, numeric backing type, assembly/module identity, or
+flags definition. The textual representation is treated as opaque enum data.
+This allows ordinary symbolic names, flags representations, and other textual
+representations produced by the originating enum implementation without
+coupling the protocol to a programming-language type system.
+
+### 8.5 Floating-point special values
+
+`floating_point_value` preserves the complete protobuf `double` value space.
+`NaN`, positive infinity, and negative infinity are valid metadata values and
+must not be rejected or transformed by Contracts.
+
+If a later Provider or output format cannot represent one of these values
+natively, adaptation to that destination is the responsibility of that
+Provider. Contracts must not discard or reinterpret the value for that reason.
+
+### 8.6 Empty MetadataValue
+
+A `MetadataValue` whose `oneof value` has no branch set represents no retained
+metadata value. The corresponding metadata entry is discarded during
+normalization rather than causing the containing Log or LogContext operation
+to fail.
+
+The same resilience principle applies to metadata entries whose key or textual
+value becomes empty during normalization: incomplete entries are removed and
+are not persisted or added to the normalized context.
+
+This rule does not apply to an explicitly supplied value whose representation
+is invalid for its declared branch. Such a value is a validation failure, not
+an absent value.
+
+### 8.7 Invalid typed representations
+
+A value explicitly supplied through a typed Contracts representation must be
+valid for that representation. Contracts and Service must not silently repair,
+reinterpret, or discard an explicitly supplied malformed typed value.
+
+This rule applies, among others, to:
+
+- invalid `google.protobuf.Timestamp` values;
+- invalid `google.protobuf.Duration` values;
+- malformed UUID representations;
+- malformed, out-of-range, or lossy decimal representations.
+
+When such invalid data is received by an RPC, the operation fails with gRPC
+`INVALID_ARGUMENT`. No log is written and no Flow mutation is performed.
+
+Absence and normalizable empty data remain distinct from malformed explicit
+data: absence/emptiness follows the established resilience and normalization
+rules, while an explicitly invalid typed representation is rejected.
 
 ------------------------------------------------------------------------
 
@@ -1092,7 +1194,16 @@ requests, including:
 -   non-empty normalized LogContext;
 -   reserved metadata keys;
 -   metadata/domain normalization;
+-   validation of explicitly supplied typed representations, including
+    Timestamp, Duration, UUID, and decimal values;
+-   removal of metadata entries that contain no retained value after
+    normalization;
 -   mapping into domain/Core semantics.
+
+Explicitly supplied data whose representation is invalid for its declared type
+causes `INVALID_ARGUMENT` and must not produce a log or mutate Flow state.
+Absent or normalizable empty metadata remains subject to the established
+resilience rules and may be discarded during normalization.
 
 Invalid input must not be silently reinterpreted into a different
 operation.
@@ -1224,6 +1335,22 @@ implementation:
     the established semantic type order.
 -   Decimal uses `google.type.Decimal` and Contracts owns
     representation-specific validation and conversion.
+-   Decimal-to-`.NET decimal` conversion must be lossless; malformed,
+    out-of-range, or lossy representations are invalid.
+-   The .NET Contracts implementation targets `net10.0`.
+-   HM-owned `.proto` schemas are distributed with the NuGet package and must
+    exactly match the corresponding package release; Google Common Protos
+    remain externally owned canonical dependencies.
+-   UUID metadata uses canonical hyphenated UUID text and normalizes hexadecimal
+    characters to lowercase.
+-   Enum metadata preserves the enum semantic category as opaque textual data
+    without reconstructing the originating enum type.
+-   Floating-point metadata accepts and preserves `NaN`, positive infinity,
+    and negative infinity.
+-   Metadata entries with no retained value after normalization are discarded
+    rather than failing the containing operation.
+-   Explicitly supplied malformed typed representations are rejected with
+    `INVALID_ARGUMENT` and produce no log or Flow mutation.
 -   LogContext contains Source, TraceId, CorrelationId, and Metadata
     only.
 -   Empty normalized distributed LogContext is invalid.
