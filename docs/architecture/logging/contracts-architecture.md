@@ -4,7 +4,7 @@
 **Protocol:** `hm.logging.contracts.v1`\
 **NuGet package:** `HDev.Hm.Logging.Contracts`\
 **Status:** Architecture baseline for Contracts v1\
-**Date:** 19 September 2026
+**Date:** 20 September 2026
 
 ------------------------------------------------------------------------
 
@@ -56,10 +56,10 @@ Its responsibilities are:
     distinguishing absence from an explicit value.
 -   Define typed transport representations for supported metadata
     values.
--   Encapsulate transport-specific conversion and validation when the
-    wire representation itself requires it.
--   Provide generated .NET gRPC/protobuf types and Contracts-owned
-    adapters needed by .NET consumers.
+-   Define which wire representations are valid without coupling those
+    representations to a particular runtime type system.
+-   Provide generated .NET gRPC/protobuf types as a language-specific
+    distribution of the canonical schemas.
 -   Preserve compatibility rules for protocol v1.
 
 It does **not** own Logging Flow state or domain behavior.
@@ -186,8 +186,18 @@ Once protocol v1 becomes stable:
 -   An incompatible protocol change requires protocol v2 and package
     major 2.
 
-During preview, the schema may evolve before stable release, but
-protocol/package major coherence must still be preserved.
+During preview releases, the schema MAY evolve through backward-compatible
+changes within the current protobuf API version.
+
+Once a preview or prerelease version has been publicly distributed, it
+establishes the compatibility baseline for that API version.
+
+Breaking wire-contract changes MUST NOT be introduced within the same API
+version solely because the distribution is still in preview.
+
+An incompatible change requires a new protobuf API version (for example,
+`v2`) or an explicitly documented and architecturally approved compatibility
+exception.
 
 ### 4.5 .NET target and schema distribution
 
@@ -228,15 +238,21 @@ Message-valued fields already provide presence.
 
 ### 5.2 Normalization boundaries
 
-Contracts transports semantic data. It must not duplicate all domain
-normalization rules.
+Contracts defines the interoperable wire representation and preserves
+presence and type information required by the protocol. It does not own
+runtime conversion into language-specific native types.
 
-Domain-oriented validation and normalization are generally performed at
-the Service ingress or subsequent domain mapping layer.
+The canonical `.proto` schemas may define what constitutes a valid wire
+representation, but language-specific parsing, conversion, normalization,
+and mapping belong to the implementation consuming the protocol.
 
-However, validation or conversion that exists specifically because of a
-transport representation belongs in Contracts-owned adapters where
-appropriate.
+`Hm.Logging.Service`, as the HM .NET implementation, performs defensive
+ingress validation and maps valid Contracts representations into the
+domain/Core model before executing the logging pipeline.
+
+Other language implementations are responsible for equivalent validation
+and mapping appropriate to their own runtime while preserving the public
+contract semantics.
 
 The Service must remain defensive because wire input is untrusted.
 
@@ -268,7 +284,8 @@ optional LogLevel level = ...;
 
 Semantics:
 
--   Level absent -\> later semantic default is `Information`.
+-   Level absent -\> Contracts preserves absence and assigns no wire
+    default.
 -   Level explicitly `TRACE` -\> Trace.
 -   Unknown/untrusted enum numeric values must be rejected defensively
     before domain conversion.
@@ -320,10 +337,14 @@ The log operation must not continue with an invalid Message.
 
 `level` uses explicit presence.
 
--   absent -\> semantic default `Information` is applied later.
+-   absent -\> Contracts preserves absence.
 -   present -\> preserve the supplied value.
 
-Contracts itself does not apply the default.
+Contracts itself does not apply a default or prescribe how every
+implementation must materialize an omitted value. An implementation that maps
+the request into the HM Logging domain must satisfy the domain semantics at
+that boundary; other consumers of the language-neutral schema own their own
+runtime policy.
 
 ### 7.3 Timestamp
 
@@ -332,12 +353,18 @@ Contracts itself does not apply the default.
 It is required in the final semantic LogEntry but may be omitted on the
 wire.
 
--   supplied -\> explicit event time.
+-   supplied -\> explicit absolute event time.
 -   omitted -\> Contracts preserves absence.
--   a later layer applies the domain default.
 
 Contracts must not generate a timestamp merely because the field was
-omitted.
+omitted and does not prescribe a universal runtime default for schema
+consumers.
+
+When supplied, the producer must provide an unambiguous absolute instant
+compatible with `google.protobuf.Timestamp`. A producer that starts from a
+local or otherwise ambiguous date/time is responsible for resolving its time
+zone before transmission. The protocol must not infer a time zone from the
+receiving Service or silently reinterpret an ambiguous local time.
 
 ### 7.4 Source
 
@@ -416,26 +443,25 @@ between absent and empty Metadata is required.
 
 ## 8. MetadataValue
 
-Metadata is constrained to semantic categories that can be represented
-consistently across languages, providers, persistence technologies, and
-output formats.
+Metadata is intentionally constrained to scalar semantic categories that can
+be represented consistently across languages, providers, persistence
+technologies, and output formats.
 
-The supported categories are:
+Contracts v1 supports:
 
--   text/string
--   boolean
--   integer
--   floating-point
--   decimal
--   GUID/UUID
--   date/time
--   duration
--   enum
+-   text/string;
+-   boolean;
+-   signed integer;
+-   unsigned integer;
+-   single-precision floating-point;
+-   double-precision floating-point;
+-   decimal;
+-   date/time;
+-   duration.
 
-Null is not a retained metadata value and therefore has no `oneof`
-branch.
-
-Raw bytes are not part of Contracts v1 metadata.
+Null is not a retained metadata value and therefore has no `oneof` branch.
+Raw bytes, arbitrary objects, arrays, nested collections, and object graphs are
+not part of Contracts v1 metadata.
 
 The conceptual structure is:
 
@@ -444,16 +470,25 @@ message MetadataValue {
   oneof value {
     string string_value = 1;
     bool boolean_value = 2;
-    int64 integer_value = 3;
-    double floating_point_value = 4;
-    google.type.Decimal decimal_value = 5;
-    string uuid_value = 6;
-    google.protobuf.Timestamp timestamp_value = 7;
-    google.protobuf.Duration duration_value = 8;
-    string enum_value = 9;
+    int64 signed_integer_value = 3;
+    uint64 unsigned_integer_value = 4;
+    float float_value = 5;
+    double double_value = 6;
+    google.type.Decimal decimal_value = 7;
+    DateTimeValue date_time_value = 8;
+    google.protobuf.Duration duration_value = 9;
   }
 }
+
+message DateTimeValue {
+  google.protobuf.Timestamp timestamp = 1;
+  google.protobuf.Duration utc_offset = 2;
+}
 ```
+
+The exact field numbers become compatibility-sensitive once the first public
+schema is published. The implementation must preserve the semantic ordering
+above when assigning the initial v1 field numbers.
 
 Map order has no semantic meaning.
 
@@ -475,74 +510,108 @@ The reserved keys are, case-insensitively:
 Reserved-key validation is a semantic ingress/domain concern rather than
 a reason to complicate the raw protobuf map.
 
-### 8.2 Decimal
+### 8.2 Text and language-specific scalar values
+
+`string_value` is the interoperable textual representation. Contracts does not
+attempt to infer additional runtime semantics from its contents.
+
+Language-specific values that do not require a distinct wire category may be
+represented as text by the producer. Examples include:
+
+-   character values;
+-   UUID/GUID values;
+-   enum names or textual enum representations;
+-   other producer-defined textual identifiers.
+
+Contracts does not validate a `string_value` as UUID, enum, character, or
+another originating runtime type. The producer owns any such semantics.
+
+When an application needs to log a complex object or collection, it must adapt
+the value before transmission. Valid approaches include flattening relevant
+properties into multiple scalar metadata entries, mapping the object into
+scalar key-value metadata, or serializing it into a textual representation
+such as JSON. Contracts does not reconstruct the original object model.
+
+### 8.3 Integers
+
+Signed integer metadata uses protobuf `int64`. Native signed integer types with
+a smaller range can be represented without loss by widening to `int64`.
+
+Unsigned integer metadata uses protobuf `uint64`. Native unsigned integer
+types with a smaller range can be represented without loss by widening to
+`uint64`.
+
+Contracts must not force unsigned values through `int64`, because values above
+the signed 64-bit maximum would be lost or rejected unnecessarily.
+
+Each language implementation is responsible for checking that conversion
+between its native integer types and the selected wire representation is
+lossless.
+
+### 8.4 Floating-point
+
+Single-precision metadata uses protobuf `float`.
+
+Double-precision metadata uses protobuf `double`.
+
+The distinction is preserved rather than widening every floating-point value
+to `double`, so the wire representation retains the semantic precision
+category supplied by the producer.
+
+Both branches preserve the value space defined by protobuf for their
+respective scalar type, including `NaN`, positive infinity, and negative
+infinity.
+
+If a later Provider or output format cannot represent one of these values
+natively, safe adaptation to that destination is the responsibility of that
+Provider. Contracts must not discard or reinterpret the value for that reason.
+
+### 8.5 Decimal
 
 Decimal values require a precision-preserving, language-neutral
 representation.
 
-Contracts v1 uses `google.type.Decimal`, a canonical string-backed decimal
-representation that preserves decimal precision across language boundaries.
+Contracts v1 uses `google.type.Decimal`, the canonical Google Common Protos
+decimal representation. Contracts must not replace it with `double`, an
+HM-owned decimal wire type, or another lossy representation.
 
-Transport-specific decimal validation, parsing, canonicalization, and
-conversion belong in Contracts-owned adaptation code so normal .NET
-consumers and the Service can work with semantic decimal values rather
-than arbitrary strings.
+The canonical schema defines the wire representation. Validation, parsing,
+canonicalization, range checking, and conversion into a native decimal type
+belong to the implementation consuming the contract.
 
-The protobuf schema must import `google/type/decimal.proto` and use
-`google.type.Decimal` for the `decimal_value` branch. Contracts-owned
-adaptation code is responsible for representation-specific validation,
-parsing, canonicalization, and conversion.
+For `Hm.Logging.Service`, an explicitly supplied decimal representation must
+be validated before any log is written or Flow state is mutated. Conversion
+to the .NET native decimal type must be lossless; malformed, out-of-range, or
+lossy values are invalid input.
 
-Codex must not replace decimal with `double`, an HM-owned decimal wire
-type, or another lossy representation.
+### 8.6 Date/time and UTC offset
 
-For .NET semantic conversion, an inbound `decimal_value` is valid only when it
-can be converted to `System.Decimal` without loss of value. Contracts-owned
-conversion must use the canonical Google decimal conversion behavior rather
-than implementing an independent decimal parser. Malformed values, values
-outside the `System.Decimal` range, and values whose conversion would lose the
-supplied decimal value are invalid representations and must be rejected by the
-operation before any log is written or Flow state is mutated.
+A metadata date/time always contains an absolute instant represented by
+`google.protobuf.Timestamp`.
 
-### 8.3 UUID
+The producer is responsible for resolving any local or ambiguous date/time
+into an unambiguous absolute instant before transmission. Contracts and
+Service must not infer a time zone from the receiver.
 
-`uuid_value` preserves the UUID semantic category independently of any
-language-specific UUID/GUID type.
+`utc_offset` is optional. When present, it preserves the UTC offset associated
+with the producer's original date/time representation. It does not alter the
+absolute instant stored in `timestamp`.
 
-A supplied UUID must use the canonical hyphenated 36-character representation:
+For example, `13:30 -05:00` and `18:30 UTC` identify the same absolute instant.
+The timestamp carries that instant; the optional offset preserves that the
+originating representation used `-05:00`.
 
-``` text
-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-```
+An offset is not a time-zone identifier and must not be documented as one.
 
-Hexadecimal characters are accepted case-insensitively and the normalized
-representation is lowercase. Contracts does not impose a UUID version or
-variant restriction beyond validity of the UUID representation.
+### 8.7 Duration
 
-### 8.4 Enum
+Duration metadata uses `google.protobuf.Duration`.
 
-`enum_value` preserves that the originating metadata value belonged to the
-enum semantic category even though its native enum type is not transported.
-The wire representation is textual.
+The wire value must satisfy the protobuf Duration representation rules.
+Conversion to any language-specific duration type is the responsibility of
+the consuming implementation.
 
-Contracts does not attempt to reconstruct or validate the originating enum
-type, its declared members, numeric backing type, assembly/module identity, or
-flags definition. The textual representation is treated as opaque enum data.
-This allows ordinary symbolic names, flags representations, and other textual
-representations produced by the originating enum implementation without
-coupling the protocol to a programming-language type system.
-
-### 8.5 Floating-point special values
-
-`floating_point_value` preserves the complete protobuf `double` value space.
-`NaN`, positive infinity, and negative infinity are valid metadata values and
-must not be rejected or transformed by Contracts.
-
-If a later Provider or output format cannot represent one of these values
-natively, adaptation to that destination is the responsibility of that
-Provider. Contracts must not discard or reinterpret the value for that reason.
-
-### 8.6 Empty MetadataValue
+### 8.8 Empty MetadataValue
 
 A `MetadataValue` whose `oneof value` has no branch set represents no retained
 metadata value. The corresponding metadata entry is discarded during
@@ -557,21 +626,23 @@ This rule does not apply to an explicitly supplied value whose representation
 is invalid for its declared branch. Such a value is a validation failure, not
 an absent value.
 
-### 8.7 Invalid typed representations
+### 8.9 Invalid typed representations
 
 A value explicitly supplied through a typed Contracts representation must be
-valid for that representation. Contracts and Service must not silently repair,
-reinterpret, or discard an explicitly supplied malformed typed value.
+valid for that representation. Implementations must not silently repair,
+reinterpret, or discard an explicitly malformed typed value.
 
 This rule applies, among others, to:
 
 - invalid `google.protobuf.Timestamp` values;
 - invalid `google.protobuf.Duration` values;
-- malformed UUID representations;
-- malformed, out-of-range, or lossy decimal representations.
+- malformed, out-of-range, or lossy decimal representations;
+- integer conversions that cannot be represented losslessly in the target
+  implementation.
 
-When such invalid data is received by an RPC, the operation fails with gRPC
-`INVALID_ARGUMENT`. No log is written and no Flow mutation is performed.
+When such invalid data is received by `Hm.Logging.Service`, the operation
+fails with gRPC `INVALID_ARGUMENT`. No log is written and no Flow mutation is
+performed.
 
 Absence and normalizable empty data remain distinct from malformed explicit
 data: absence/emptiness follows the established resilience and normalization
@@ -1178,10 +1249,9 @@ unless a future architecture decision explicitly requires it.
 
 ## 21. Validation Boundary Summary
 
-Contracts/protobuf structurally constrains the wire shape.
-
-Contracts-owned adapters may validate and convert
-representation-specific data such as canonical decimal values.
+Contracts/protobuf structurally constrains the wire shape and documents the
+valid semantics of each representation. Contracts does not own
+language-specific runtime conversion.
 
 Service ingress performs defensive semantic validation of untrusted
 requests, including:
@@ -1195,7 +1265,7 @@ requests, including:
 -   reserved metadata keys;
 -   metadata/domain normalization;
 -   validation of explicitly supplied typed representations, including
-    Timestamp, Duration, UUID, and decimal values;
+    Timestamp, UTC offset, Duration, integer ranges, and decimal values;
 -   removal of metadata entries that contain no retained value after
     normalization;
 -   mapping into domain/Core semantics.
@@ -1227,8 +1297,8 @@ The project requires:
 -   zero new duplication;
 -   coverage for new handwritten code where applicable;
 -   generated protobuf C# excluded from coverage metrics;
--   unit tests for Contracts-owned adapters, conversion, and validation
-    code;
+-   tests for HM-authored contract helpers or generated-code integration
+    where applicable;
 -   automated protobuf compatibility / breaking-change validation;
 -   publication gated by CI/CD.
 
@@ -1246,6 +1316,22 @@ process.
 ## 23. Documentation Requirements
 
 Public protocol documentation must be written in English.
+
+Canonical `.proto` comments and protocol documentation must describe
+semantics in language-neutral terms. They must not make a .NET type or
+behavior a requirement unless that concern is intrinsically part of the wire
+contract.
+
+Language-specific distributions may provide implementation examples. The
+initial NuGet documentation may use C#/.NET examples, but those examples must
+be clearly identified as language-specific guidance rather than protocol
+requirements.
+
+Important representation rules, including timestamp/UTC behavior, optional
+field semantics, metadata categories, and invalid-input behavior, must be
+discoverable from the public contract documentation. Where generated tooling
+preserves schema comments, those comments should provide useful IDE guidance
+without making generated code the source of truth.
 
 Each RPC whose behavior involves retries, idempotency, resilience, or
 multiple semantic outcomes must document:
@@ -1327,26 +1413,33 @@ implementation:
 -   Preview maturity is not encoded in protobuf identities.
 -   `LogLevel` preserves Trace=0 through Critical=5.
 -   Optional domain scalars preserve protobuf presence where required.
--   Timestamp uses protobuf Timestamp and Contracts does not generate
-    its default.
+-   Timestamp uses protobuf Timestamp, represents an absolute instant, and
+    Contracts does not generate its default or infer a receiver time zone.
 -   TraceId remains optional and Contracts does not generate it.
 -   Exception is optional opaque textual diagnostic information.
--   Metadata uses typed `MetadataValue` with fixed field numbers following
-    the established semantic type order.
--   Decimal uses `google.type.Decimal` and Contracts owns
-    representation-specific validation and conversion.
--   Decimal-to-`.NET decimal` conversion must be lossless; malformed,
-    out-of-range, or lossy representations are invalid.
+-   Metadata uses scalar typed `MetadataValue`; arbitrary objects,
+    collections, arrays, and object graphs are not wire metadata values.
+-   Signed integers use `int64`; unsigned integers use `uint64`.
+-   Single-precision and double-precision floating-point values remain
+    distinct through protobuf `float` and `double`.
+-   Character, UUID/GUID, enum, and other producer-defined textual values use
+    `string_value`; Contracts does not infer or validate their originating
+    runtime type.
+-   Decimal uses canonical `google.type.Decimal`; native parsing, validation,
+    and conversion belong to the consuming implementation.
+-   `Hm.Logging.Service` must reject malformed, out-of-range, or lossy decimal
+    values before logging or mutating Flow state.
+-   Metadata date/time uses an absolute protobuf Timestamp plus an optional
+    UTC offset that preserves the originating offset without changing the
+    instant.
 -   The .NET Contracts implementation targets `net10.0`.
 -   HM-owned `.proto` schemas are distributed with the NuGet package and must
     exactly match the corresponding package release; Google Common Protos
     remain externally owned canonical dependencies.
--   UUID metadata uses canonical hyphenated UUID text and normalizes hexadecimal
-    characters to lowercase.
--   Enum metadata preserves the enum semantic category as opaque textual data
-    without reconstructing the originating enum type.
--   Floating-point metadata accepts and preserves `NaN`, positive infinity,
-    and negative infinity.
+-   Complex producer values may be flattened into scalar metadata or
+    serialized to text before transmission.
+-   Floating-point metadata accepts and preserves the protobuf special values
+    supported by the selected `float` or `double` branch.
 -   Metadata entries with no retained value after normalization are discarded
     rather than failing the containing operation.
 -   Explicitly supplied malformed typed representations are rejected with

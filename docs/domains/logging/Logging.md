@@ -1,10 +1,10 @@
 # HM Logging Domain
 
-**Version:** 1.1
+**Version:** 1.2
 
 **Status:** Defined
 
-**Last Updated:** 2026-09-17
+**Last Updated:** 2026-09-20
 
 ---
 
@@ -99,7 +99,19 @@ Supported metadata values must represent the **nature of the data**, rather than
 
 The supported metadata types are intentionally constrained to values that can be represented consistently across different providers, platforms, persistence technologies, and output media. This restriction exists to preserve interoperability and consistency when logging data is persisted, transported, printed, or otherwise represented.
 
-Types that have platform- or language-specific representations must be mapped to their corresponding domain-level representation. For example, values such as timestamps and GUIDs must use a representation that can be consistently serialized and consumed across implementations.
+Types that have platform- or language-specific representations must be mapped to a representation that can be consistently serialized and consumed across implementations.
+
+Metadata values are intentionally scalar. Arbitrary objects, nested collections, arrays, and other complex runtime structures are not metadata value types in the HM Logging domain.
+
+When an originating application needs to include complex information, it may adapt that information before logging by:
+
+- flattening relevant properties into multiple scalar metadata entries;
+- converting the structure into scalar key-value metadata; or
+- serializing the structure into a textual representation.
+
+The originating application owns that adaptation. HM Logging does not infer, reconstruct, or impose the original object model.
+
+This restriction exists so metadata can remain portable across languages, transports, providers, persistence technologies, and output formats.
 
 The exact validation and normalization behavior of metadata is an implementation concern.
 
