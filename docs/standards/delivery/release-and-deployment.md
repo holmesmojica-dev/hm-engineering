@@ -276,7 +276,20 @@ Publication MUST preserve a clear relationship between the published
 version and its source commit or release tag.
 
 When a single release is distributed through multiple channels, those
-distributions SHOULD originate from the same authoritative source state.
+distributions SHOULD originate from the same authoritative source state and
+release identity.
+
+Multi-channel publication SHOULD define an explicit order, idempotent recovery
+behavior, and a way to verify whether an already-published channel corresponds
+to the exact source state of the release being resumed. Partial publication
+failure SHOULD resume the same release when safe rather than create a new
+version solely because a later channel was temporarily unavailable.
+
+If two channels expose the same release identity but trace to conflicting
+source states, automation MUST stop rather than silently overwrite, relabel, or
+repair the inconsistency. Published immutable release identities SHOULD be
+corrected through a subsequent release when the defect exists in an already
+completed publication.
 
 Publication automation MUST NOT silently alter the semantics of an
 artifact after its release validation.

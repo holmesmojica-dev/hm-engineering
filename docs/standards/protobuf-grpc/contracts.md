@@ -173,6 +173,11 @@ source or registry module when available.
 When dependencies are resolved through Buf, they MUST be declared explicitly
 and their resolved versions MUST be recorded through `buf.lock`.
 
+CI SHOULD verify before publication that committed dependency lock state remains
+consistent with the declared module dependencies. A stale or inconsistent lock
+state MUST block publication when it would make dependency resolution or the
+validated schema graph ambiguous.
+
 HM projects MUST NOT copy, fork, rebrand, or maintain local HM-owned copies
 of external schemas solely to make those schemas available to the protobuf
 toolchain.
@@ -278,8 +283,20 @@ Compatibility checks MUST compare against the actual integration or published
 baseline applicable to the change.
 
 Once a public contract version exists, release validation SHOULD additionally
-verify compatibility against the relevant published contract when doing so
-provides additional protection beyond the integration baseline.
+verify compatibility against the relevant successfully published contract when
+doing so provides additional protection beyond the integration baseline.
+
+When a registry provides immutable publication identities, projects SHOULD
+prefer an immutable registry reference over a mutable label for automated
+release compatibility validation.
+
+Projects that persist the last successful registry publication as CI/CD state
+MUST distinguish an explicit first-baseline/reset state from missing, empty, or
+invalid state. Missing state MUST NOT silently disable compatibility validation.
+
+A project MAY establish a stricter policy that forbids compatibility overrides
+within an API version. Such a policy SHOULD be documented by the project
+architecture.
 
 Failures in mandatory protobuf governance checks MUST block integration unless
 an explicitly governed exception applies.

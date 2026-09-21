@@ -4,7 +4,7 @@
 **Protocol:** `hm.logging.contracts.v1`\
 **NuGet package:** `HDev.Hm.Logging.Contracts`\
 **Status:** Architecture baseline for Contracts v1\
-**Date:** 20 September 2026
+**Date:** 21 September 2026
 
 ------------------------------------------------------------------------
 
@@ -185,8 +185,8 @@ preview or prerelease:
 -   Removed fields should be declared `reserved`.
 -   Backward-compatible additions may evolve within v1.
 -   An incompatible protocol change requires protocol v2 and package
-    major 2, unless an explicitly documented and architecturally
-    approved compatibility exception applies.
+    major 2. Contracts v1 does not permit breaking-change overrides within
+    the existing protobuf API version.
 
 During preview releases, the schema MAY evolve through
 backward-compatible changes within the current protobuf API version.
@@ -198,8 +198,8 @@ Breaking wire-contract changes MUST NOT be introduced within the same
 API version solely because the distribution is still in preview.
 
 An incompatible change requires a new protobuf API version (for example,
-`v2`) or an explicitly documented and architecturally approved
-compatibility exception.
+`v2`). Contracts v1 does not provide a compatibility override or bypass for
+a failing breaking-change validation.
 
 ### 4.5 .NET target and schema distribution
 
@@ -294,6 +294,55 @@ Release-specific notes belong to the corresponding GitHub Release or
 equivalent release record. Static package metadata must not preserve
 release notes in a form that becomes stale across later package
 versions.
+
+### 4.9 BSR distribution and compatibility baseline
+
+The public language-neutral protobuf distribution is published as:
+
+``` text
+buf.build/hdev-hm/logging
+```
+
+The repository directory `proto/` is the protobuf module root. BSR must
+therefore preserve the canonical relative schema hierarchy exactly as:
+
+``` text
+hm/logging/contracts/v1/
+```
+
+The BSR module publishes only HM-owned schemas. External schemas such as
+Google Common Protos remain external BSR dependencies and must be resolved
+through the declared Buf dependency graph and committed `buf.lock`.
+
+Each public release uses the same release identity across channels:
+
+- Git release tag: `v<SemVer>`;
+- NuGet package version: `<SemVer>`;
+- BSR release label: `v<SemVer>`;
+- exact Git source commit associated with both distributions.
+
+Release labels are explicit. Branch names must not be published as official
+release labels.
+
+Breaking-change validation uses the immutable BSR commit from the last
+successful BSR publication as its baseline. The repository-level GitHub
+Actions variable `LAST_BSR_COMMIT_ID` stores that operational state.
+
+`LAST_BSR_COMMIT_ID` has exactly three valid states:
+
+- `INITIAL`: intentionally establish a new compatibility baseline and skip
+  `buf breaking` for that publication;
+- a valid immutable commit ID belonging to `buf.build/hdev-hm/logging`:
+  `buf breaking` is mandatory against that snapshot;
+- missing, empty, malformed, or unresolvable value: release validation fails.
+
+`INITIAL` is an explicit administrative compatibility decision, not an
+automatic fallback for missing state and not a bypass for an ordinary
+breaking change within Contracts v1.
+
+After a successful `buf push`, the resulting immutable BSR commit ID becomes
+the new `LAST_BSR_COMMIT_ID`. The variable must not change when BSR
+publication fails.
 
 ------------------------------------------------------------------------
 
@@ -1388,22 +1437,105 @@ The project requires:
 -   automated protobuf compatibility / breaking-change validation;
 -   publication gated by CI/CD.
 
-The implementation should investigate and adopt an appropriate protobuf
-compatibility tool rather than relying only on code review.
+Buf is the protobuf governance tool for formatting, linting, build, dependency
+resolution, and compatibility validation. `buf.lock` is committed and CI must
+verify that it remains consistent with the dependencies declared by the
+project before release publication.
 
-Package version must be derived from the release tag. A static manually
-maintained package version must not become the release source of truth.
+### 22.1 Validation gates by phase
 
-The release build must produce the NuGet package and its corresponding
-symbol package from the same validated source state. Source mapping,
-portable symbols, XML documentation, package documentation, package
-icon, and distributed HM-owned schemas must describe that same release.
+Validation is layered so that each phase gates the next one:
 
-Release-specific notes are maintained by the GitHub Release or
-equivalent release record rather than as stale static package metadata.
+1. **Local / pre-push** provides fast deterministic feedback: formatting,
+   Release build with zero warnings, automated tests, and applicable local Buf
+   validation. Expensive remote analysis such as SonarCloud is not required
+   locally.
+2. **Pull Request** is the authoritative integration gate. It runs the full
+   applicable quality suite, including formatting, build/static analysis,
+   tests and coverage, SonarCloud analysis with blocking Quality Gate,
+   dependency/security review, Buf validation, and package validation where
+   applicable. A mandatory failure blocks merge.
+3. **Main** revalidates the integrated commit, including SonarCloud Quality
+   Gate, so a release tag is created only from an integrated state that has
+   passed the required main-branch validations.
+4. **Release** validates release identity and the exact tagged commit rather
+   than using publication as a substitute for earlier quality gates. It
+   verifies canonical SemVer/tag rules, source-commit identity, package
+   identity, `buf.lock`, BSR compatibility baseline, and all publication
+   prerequisites before any public channel is mutated.
+
+Normal development changes must not advance to the next phase when the current
+phase has a mandatory validation failure.
+
+### 22.2 Release publication order and recovery
+
+Official publication is triggered only by an authorized HM SemVer release tag
+on a validated commit in the protected `main` history. Release executions for
+Contracts are serialized so that two publication runs cannot concurrently
+modify BSR release state.
+
+All deterministic BSR checks must complete before NuGet publication. Public
+channels are then updated in this order:
+
+1. publish or verify the NuGet release;
+2. publish or verify the corresponding BSR release;
+3. persist the successful BSR commit as `LAST_BSR_COMMIT_ID`;
+4. perform post-publication records such as the GitHub Release.
+
+NuGet and BSR together constitute successful contract distribution. Failure of
+a later GitHub Release step does not make an already successful NuGet + BSR
+distribution unpublished.
+
+`buf push` uses at most two attempts. Each attempt has a 60-second timeout and
+the second attempt follows a 10-second backoff. If both attempts fail, the
+release run fails and `LAST_BSR_COMMIT_ID` remains unchanged.
+
+Updating `LAST_BSR_COMMIT_ID` uses at most two attempts, each with a 15-second
+timeout and a 10-second backoff. The update uses a dedicated least-privilege
+GitHub credential scoped only to repository Variables read/write access.
+
+Release reruns must be idempotent. If NuGet or BSR already contains the
+release, automation must verify that the existing publication corresponds to
+the exact tagged Git source state before skipping publication and continuing
+recovery. NuGet `RepositoryCommit` records the exact source commit used for
+this verification. BSR publication metadata must preserve equivalent
+traceability to the same source commit.
+
+If the same release identity exists in NuGet and BSR but resolves to different
+source states, automation must stop. It must not rewrite either published
+release automatically; remediation requires investigation and a new corrective
+version when appropriate.
+
+A failure during publication is recovered by retrying/resuming the same
+release. A defect discovered after successful publication is corrected by a
+new higher version, not by rewriting or rolling back an existing SemVer
+release identity.
+
+### 22.3 Publication credentials and artifacts
+
+BSR publication uses `BUF_TOKEN` stored as a GitHub Secret and scoped to the
+minimum BSR access required to publish `buf.build/hdev-hm/logging`.
+`LAST_BSR_COMMIT_ID` is non-sensitive operational state and is stored as a
+GitHub Actions Variable.
+
+PR artifacts are generated only as needed for validation and do not need
+long-term retention. Main and release diagnostic artifacts may use short
+retention (currently seven days) when useful for troubleshooting. GitHub
+workflow logs follow repository log-retention policy and are not duplicated as
+separate artifacts solely for archival purposes.
+
+The release build must produce the NuGet package and its corresponding symbol
+package from the same validated source state. Source mapping, portable symbols,
+XML documentation, package documentation, package icon, and distributed
+HM-owned schemas must describe that same release.
+
+Release-specific notes are maintained by the GitHub Release or equivalent
+release record rather than as stale static package metadata.
 
 Publication occurs from release tags according to the repository release
-process.
+process. Public release artifacts include the provenance/attestation required
+by the HM delivery standard and must remain traceable to the exact validated
+source state.
 
 ------------------------------------------------------------------------
 
@@ -1570,6 +1702,17 @@ implementation:
 -   gRPC statuses represent invalid/failed operations; typed results
     represent valid semantic outcomes.
 -   RPC-result enums reserve numeric zero for `UNSPECIFIED`.
+-   BSR module identity is `buf.build/hdev-hm/logging`, with repository
+    `proto/` as the module root and canonical paths preserved below it.
+-   BSR release labels use the same `v<SemVer>` identity as Git release tags;
+    branch-derived labels are not official release identities.
+-   `LAST_BSR_COMMIT_ID` stores the immutable BSR commit from the last
+    successful BSR publication; `INITIAL` explicitly establishes a new
+    baseline, while missing or invalid state blocks release.
+-   Contracts v1 has no breaking-change override: a failing compatibility
+    check blocks release and an incompatible protocol change requires v2.
+-   NuGet and BSR publication are recoverable/idempotent for the same release;
+    conflicting source identities across channels block automation.
 -   Service runtime expiration policy remains outside Contracts.
 
 This baseline must be treated as stable input to the first
