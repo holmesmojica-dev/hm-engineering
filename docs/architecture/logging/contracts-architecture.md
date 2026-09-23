@@ -3,8 +3,8 @@
 **Component:** `Hm.Logging.Contracts`\
 **Protocol:** `hm.logging.contracts.v1`\
 **NuGet package:** `HDev.Hm.Logging.Contracts`\
-**Status:** Architecture baseline for Contracts v1\
-**Date:** 21 September 2026
+**Status:** Contracts v1 architecture implemented and publicly released as `v1.0.0-preview.1`\
+**Date:** 22 September 2026
 
 ------------------------------------------------------------------------
 
@@ -1513,8 +1513,12 @@ release identity.
 
 ### 22.3 Publication credentials and artifacts
 
-BSR publication uses `BUF_TOKEN` stored as a GitHub Secret and scoped to the
-minimum BSR access required to publish `buf.build/hdev-hm/logging`.
+BSR publication uses `BUF_TOKEN` stored as a GitHub Secret. The current BSR
+credential is a dedicated personal token with Full access because the available
+limited-token configuration did not expose the push/write permissions required
+for this publication workflow. This is an explicitly accepted security debt, not
+the desired steady-state permission model; a narrower CI credential or service
+identity SHOULD replace it when BSR supports one that can publish the module.
 `LAST_BSR_COMMIT_ID` is non-sensitive operational state and is stored as a
 GitHub Actions Variable.
 
@@ -1715,5 +1719,7 @@ implementation:
     conflicting source identities across channels block automation.
 -   Service runtime expiration policy remains outside Contracts.
 
-This baseline must be treated as stable input to the first
-implementation of `Hm.Logging.Contracts`.
+This baseline is implemented and publicly distributed as `v1.0.0-preview.1`.
+It is now the compatibility baseline for Contracts v1. Future Contracts work is
+maintenance or intentional compatible evolution unless an explicit new protocol
+version is approved.

@@ -1,11 +1,11 @@
 # HM Logging — Distributed Logging Architecture
 
-**Architecture baseline:** 17 September 2026
+**Architecture baseline:** 22 September 2026
 
 | Property | Value |
 |---|---|
-| **Status** | Architecture defined; Contracts v1 wire-level design finalized |
-| **Date** | 17 September 2026 |
+| **Status** | Architecture defined; Contracts v1 published as v1.0.0-preview.1 through NuGet and BSR |
+| **Date** | 22 September 2026 |
 | **Scope** | Technology-independent distributed logging architecture |
 | **Relationship to domain** | Builds on HM Logging Domain without modifying its fundamental semantics |
 | **Primary distributed concept** | Logging Flow |
@@ -190,7 +190,7 @@ A distributed implementation must not silently reinterpret one Flow as another o
 
 ## 12. Transport Independence
 
-Logging Flows solve a distributed state problem; they are not inherently tied to gRPC. Hm.Logging.Contracts will initially express this architecture through protobuf/gRPC, but the architecture itself is transport-independent and may be implemented by other distributed components in the future.
+Logging Flows solve a distributed state problem; they are not inherently tied to gRPC. Hm.Logging.Contracts expresses this architecture through protobuf/gRPC, but the architecture itself is transport-independent and may be implemented by other distributed components in the future.
 
 For the planned gRPC protocol, protobuf definitions must remain interoperable across languages. .NET-specific generated types or NuGet packaging are conveniences for .NET consumers, not the conceptual definition of the protocol.
 
@@ -294,7 +294,7 @@ Because non-.NET clients are an explicit requirement, protocol decisions must be
 
 ## 19. Open Design Items
 
-The Contracts v1 wire-level decisions previously tracked here are now defined by `docs/architecture/logging/contracts-architecture.md`.
+The Contracts v1 wire-level decisions previously tracked here are defined by `docs/architecture/logging/contracts-architecture.md` and are implemented and publicly distributed as `v1.0.0-preview.1`. Release versioning, BSR publication, release automation, provenance/attestation, cross-registry coherence, recovery/idempotency, and baseline persistence are completed delivery concerns and do not reopen the distributed Flow semantics defined here.
 
 The remaining open items belong to the distributed runtime / `Hm.Logging.Service` design:
 
@@ -318,4 +318,4 @@ The remaining open items belong to the distributed runtime / `Hm.Logging.Service
 
 ## 21. Current Architectural Baseline
 
-This document is the current baseline for distributed logging architecture. Contracts v1 wire-level decisions are defined by `docs/architecture/logging/contracts-architecture.md`. The remaining open items are Service/runtime concerns and do not block implementation of `Hm.Logging.Contracts`. Later implementation details may refine operational behavior, but changes to the established invariants above should be treated as explicit architectural decisions rather than incidental code changes.
+This document is the current baseline for distributed logging architecture. Contracts v1 wire-level decisions are defined by `docs/architecture/logging/contracts-architecture.md`; the approved protocol is implemented and publicly released as `v1.0.0-preview.1` through NuGet and BSR. The v1 public preview is now the compatibility baseline. Remaining open architecture items are Service/runtime concerns. Later implementation details may refine operational behavior, but changes to the established invariants above should be treated as explicit architectural decisions rather than incidental code changes.
