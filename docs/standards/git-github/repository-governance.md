@@ -374,3 +374,24 @@ An intentional deviation from a **MUST** requirement MUST document:
 - the reason;
 - the scope of the exception;
 - relevant security, quality, or traceability consequences.
+---
+
+## 16. HM Quality and Delivery Workflow Boundaries
+
+For HM projects governed by the standard Quality/Delivery model, repository
+configuration MUST preserve the blocking chain:
+
+`Local/Pre-Commit -> Pull Request required checks -> Main Quality eligibility -> Release Tag -> Delivery`
+
+Pull Request branch protection MUST require the applicable checks defined by the
+technology quality standards. A commit whose mandatory Main Quality Gate fails
+or cannot be determined MUST NOT be treated as Delivery-eligible.
+
+Release workflows MUST be triggered by the approved `v<SemVer>` release tag for
+profiles defined by the HM Release & Deployment Standard. Tag-triggered Delivery
+MUST verify the exact tagged commit, `main` membership, and Main eligibility; it
+MUST NOT use the tag as a bypass around repository Quality gates.
+
+Workflow permissions MUST default to read-only and be elevated at job scope only
+for the operation that requires them, including OIDC attestation/publication,
+registry publication, deployment, or GitHub Release creation.

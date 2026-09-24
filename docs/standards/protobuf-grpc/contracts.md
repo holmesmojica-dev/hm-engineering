@@ -269,82 +269,48 @@ guidance without making generated code the source of truth.
 
 ## 10. Validation and CI
 
-Changes to HM protobuf contracts MUST be automatically validated before
-integration into a protected main branch.
+HM-owned protobuf contracts MUST participate in the HM Quality lifecycle.
 
-At minimum, protobuf validation MUST verify:
+Local/Pre-Commit and Pull Request validation MUST include, as applicable:
 
-1. formatting;
-2. Buf lint;
-3. Buf build;
-4. breaking compatibility against the appropriate baseline.
+1. `buf format`;
+2. `buf lint`;
+3. `buf build`;
+4. breaking compatibility against the appropriate integration or published
+   baseline once such a baseline exists.
 
-Compatibility checks MUST compare against the actual integration or published
-baseline applicable to the change.
+Mandatory protobuf checks MUST block Pull Request integration. Missing, empty,
+or invalid compatibility state MUST NOT silently disable a required breaking
+check. A deliberate first-baseline/reset state MUST be explicit.
 
-Once a public contract version exists, release validation SHOULD additionally
-verify compatibility against the relevant successfully published contract when
-doing so provides additional protection beyond the integration baseline.
-
-When a registry provides immutable publication identities, projects SHOULD
-prefer an immutable registry reference over a mutable label for automated
-release compatibility validation.
-
-Projects that persist the last successful registry publication as CI/CD state
-MUST distinguish an explicit first-baseline/reset state from missing, empty, or
-invalid state. Missing state MUST NOT silently disable compatibility validation.
-
-A project MAY establish a stricter policy that forbids compatibility overrides
-within an API version. Such a policy SHOULD be documented by the project
-architecture.
-
-Failures in mandatory protobuf governance checks MUST block integration unless
-an explicitly governed exception applies.
+Normal Buf Quality checks MUST NOT be repeated by Delivery. Delivery verifies
+that the tagged source is an eligible Main state and then applies the BSR
+artifact/publication controls defined by the HM Release & Deployment Standard.
 
 Compilation or generation SHOULD also be validated for officially supported
-language targets.
-
-Language-specific quality validation belongs to the applicable HM technology
-standard and complements, rather than replaces, protobuf validation.
+language targets. Language-specific quality belongs to the applicable HM
+technology standard and complements protobuf validation.
 
 ---
 
 ## 11. Distribution and Publication
 
-Every published protobuf contract MUST be traceable to a specific validated
-Git commit.
+Every published protobuf contract MUST be traceable to a specific eligible Git
+commit and release identity. Publication MUST NOT modify canonical contracts
+after Quality validation.
 
-Publication MUST preserve the relationship between:
+When the same contracts are distributed through multiple channels, all channels
+in the same release workflow MUST originate from the same `SourceCommit +
+ReleaseTag + ReleaseVersion`.
 
-`source commit -> validation -> release/distribution -> published schema`
+BSR publication order, retry behavior, remote verification, persistence of the
+last trusted immutable BSR commit ID, multi-channel NuGet/BSR coordination,
+provenance, and GitHub Release creation are governed by
+`../delivery/release-and-deployment.md`.
 
-Publication automation MUST NOT modify the contract after its validation.
-
-When the same protobuf contracts are distributed through multiple channels,
-those distributions MUST originate from the same authoritative contract
-source and release state.
-
-The mechanism that triggers publication is NOT defined by this standard.
-
-Release triggers, artifact promotion, deployment strategies, provenance,
-attestation, and general release governance MUST follow the applicable HM
-delivery standards.
-
-Protobuf API versioning MUST remain conceptually separate from distribution
-or package-manager versioning.
-
-For example, an API may remain within:
-
-`hm.<domain>.<component>.v1`
-
-while compatible language-specific distributions evolve through multiple
-package releases.
-
-A package-manager major version change does not automatically require a new
-protobuf API version.
-
-Likewise, introducing a new protobuf API version does not by itself define
-the version number of every language-specific distribution.
+Protobuf API versioning remains distinct from distribution/package-manager
+versioning. A contract may remain in `hm.<domain>.<component>.v1` through many
+compatible distribution releases.
 
 ---
 

@@ -264,35 +264,82 @@ source state and binaries represented by the released package.
 
 ------------------------------------------------------------------------
 
-## 11. Continuous Integration Quality Gates
+## 11. Quality Lifecycle and Blocking Gates
 
-Quality validation MUST occur before changes are integrated into the
-protected main branch.
+HM .NET quality validation MUST use the following lifecycle unless an approved
+project-specific standard is stricter. Delivery MUST NOT be used to repeat
+Quality.
 
-Validation SHOULD be organized to provide fast feedback before more
-expensive analysis.
+### 11.1 Local / Pre-Commit
 
-A typical validation progression is:
+The local/pre-commit baseline MUST execute, in this order:
 
-`format/static analysis -> build -> tests -> coverage -> quality analysis`
+`dotnet restore -> dotnet format -> build -> tests`
 
-The exact workflow MAY vary according to project characteristics.
+The build MUST include the configured compiler and Roslyn analyzer rules. A
+failure in any applicable step MUST block the local quality gate and therefore
+block normal progression to Pull Request.
 
-At minimum, applicable .NET validation MUST include:
+When the repository contains HM-owned Protocol Buffers governed by the HM
+Protobuf/gRPC standard, local validation MUST additionally execute the
+applicable `buf format`, `buf lint`, and `buf build` checks.
 
-1.  formatting validation;
-2.  compiler and static-analysis validation;
-3.  build validation;
-4.  automated tests when the project contains testable behavior.
+### 11.2 Pull Request
 
-Coverage and Quality Gate validation MUST additionally be enforced where
-required by this standard or by the project's architecture.
+Every .NET Pull Request targeting the protected integration branch MUST pass:
 
-Validation executed at different lifecycle stages MAY overlap when the
-additional execution improves confidence or protects a different
-integration boundary.
+1. `dotnet format` verification;
+2. dependency restore;
+3. Release build with compiler/analyzer validation;
+4. automated tests;
+5. coverage generation;
+6. Sonar analysis and the blocking Quality Gate;
+7. NuGet Security Audit for projects that consume NuGet packages;
+8. GitHub Dependency Review.
 
-CI MUST NOT silently ignore mandatory validation failures.
+NuGet Security Audit MUST evaluate direct and transitive dependencies. Low
+severity findings (`NU1901`) are warnings by default. Moderate, high, and
+critical findings (`NU1902`, `NU1903`, `NU1904`) MUST block the Pull Request
+unless an explicitly governed exception exists.
+
+Dependency Review MUST block dependency changes at moderate severity or higher
+by default.
+
+When Protocol Buffers apply, the Pull Request MUST also pass `buf format`,
+`buf lint`, `buf build`, and the compatibility/breaking checks required by the
+HM Protobuf/gRPC standard.
+
+A failed or indeterminate mandatory PR check MUST block merge.
+
+### 11.3 Main
+
+After integration to `main`, the mandatory conceptual quality gate is:
+
+`coverage -> Sonar analysis -> Quality Gate`
+
+Build and test execution MAY be required mechanically to produce the coverage
+and Sonar inputs; when so, they are implementation mechanics of this gate and
+not additional Main policies.
+
+Main MUST NOT normally repeat formatting, Dependency Review, NuGet Security
+Audit, or Buf quality checks already enforced at the Pull Request boundary.
+
+A mandatory Main Quality Gate MUST be fail-closed. If its required result cannot
+be determined, the commit MUST NOT be considered eligible for Delivery.
+
+### 11.4 Phase progression
+
+The blocking progression is:
+
+`Local/Pre-Commit -> Pull Request -> Main -> Delivery eligibility`
+
+Each validation SHOULD execute at the earliest phase capable of blocking the
+defect. A later phase MUST repeat a validation only when the repetition
+establishes a distinct guarantee for that phase.
+
+Delivery workflows MUST verify that the tagged source commit is an eligible
+Main commit, but MUST NOT rerun normal Quality checks such as formatting, tests,
+coverage, Sonar, NuGet Security Audit, Dependency Review, or Buf quality checks.
 
 ------------------------------------------------------------------------
 

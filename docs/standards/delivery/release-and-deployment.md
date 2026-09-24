@@ -2,444 +2,233 @@
 
 ## 1. Purpose and Scope
 
-This document defines the baseline requirements for releasing,
-publishing, promoting, and deploying software produced within the HM
-ecosystem.
+This document defines how an HM project turns an eligible source state into a
+published or deployed release. It is intentionally operational enough that a
+new project or automation agent can derive the required delivery workflows
+without redesigning the release process.
 
-It applies to deliverable software artifacts such as:
+The terms **MUST**, **SHOULD**, and **MAY** express mandatory, recommended, and
+optional requirements respectively.
 
--   packages;
--   container images;
--   web applications;
--   APIs and services;
--   desktop applications;
--   mobile applications;
--   reusable contract distributions.
+---
 
-The standard defines delivery guarantees rather than prescribing a
-universal pipeline.
+## 2. Standard Delivery Boundary
 
-Projects MAY use different release and deployment models according to
-their artifact type, architecture, operational requirements, and risk.
+Quality and Delivery are separate boundaries.
 
-The terms **MUST**, **SHOULD**, and **MAY** express requirement levels:
+The standard progression is:
 
--   **MUST**: mandatory for compliance with the standard.
--   **SHOULD**: recommended unless a documented reason justifies
-    otherwise.
--   **MAY**: optional.
+`Local/Pre-Commit -> Pull Request -> Main Quality -> Eligible Main Commit -> Release Tag -> Delivery`
 
-------------------------------------------------------------------------
+For the delivery profiles defined by HM, a pushed release tag `v<SemVer>` is the
+explicit delivery intent and the source of the public `ReleaseVersion`.
+Delivery MUST verify Quality eligibility; it MUST NOT rerun normal Quality.
 
-## 2. Delivery Model
+Public release tags MUST NOT contain SemVer build metadata (`+...`) when the
+same release identity is exposed through registries that cannot represent it
+consistently.
 
-Every project that publishes or deploys software MUST define its
-delivery model explicitly.
+---
 
-The model MUST identify, as applicable:
+## 3. Delivery Preflight
 
--   what artifact or application is delivered;
--   what event initiates publication or deployment;
--   what validations are required;
--   where the artifact is published;
--   which environments receive deployments;
--   how the delivered version is identified;
--   how delivery can be traced back to source.
+Before producing or publishing an artifact, Delivery MUST fail closed unless it
+can establish all applicable guarantees:
 
-This standard does not prescribe a universal release trigger.
+1. the release tag has the project's accepted `v<SemVer>` grammar;
+2. the exact commit referenced by the tag is resolved;
+3. that commit belongs to `main` history; it need not be current `main` HEAD;
+4. that commit is eligible for Delivery because the mandatory Main gate passed;
+5. `ReleaseVersion`, source commit, tag, and planned artifact identities are
+   coherent;
+6. no existing immutable publication conflicts with the intended release.
 
-Valid models MAY include, among others:
+The resulting release identity is:
 
--   release-tag-driven publication;
--   integration-to-main continuous deployment;
--   manual promotion;
--   environment-controlled deployment.
+`Repository + SourceCommit + ReleaseTag + ReleaseVersion`
 
-The selected model MUST preserve the guarantees established by this
-standard.
+Every artifact/channel produced by the same release workflow MUST represent
+that same release identity.
 
-------------------------------------------------------------------------
+---
 
-## 3. Validation Before Delivery
+## 4. Build/Package Once and Artifact Integrity
 
-Software MUST pass all mandatory quality and compatibility validations
-applicable to the project before it is published or deployed.
+A release artifact MUST be built or packaged once from the exact tagged source.
+The exact artifact that passes Delivery artifact validation MUST be the artifact
+that is attested, published, promoted, or deployed.
 
-A failed mandatory validation MUST block normal delivery.
+Publication jobs MUST NOT rebuild or silently repackage the artifact.
+Cross-job artifact transfer MUST preserve integrity. When files are transferred
+between jobs, the workflow SHOULD produce and verify a cryptographic manifest
+(SHA-256 by default).
 
-Applicable validations are defined by the relevant HM technology,
-architecture, contract, and repository-governance standards.
+Artifact validation belongs to Delivery and MUST validate the final distributable
+artifact, not merely the source from which it was produced.
 
-Delivery automation MUST NOT silently bypass mandatory quality gates.
+---
 
-------------------------------------------------------------------------
+## 5. Provenance, Permissions, and Credentials
 
-## 4. Artifact Identity and Immutability
+Public or reusable artifacts SHOULD receive provenance/attestation when the
+platform supports it. The attestation MUST refer to the same artifact that is
+published.
 
-Every released or deployed artifact MUST have an unambiguous identity.
+GitHub Actions MUST use explicit least-privilege permissions. Elevated
+permissions belong only to the job that requires them. External Actions SHOULD
+be pinned to reviewed immutable full commit SHAs.
 
-Depending on the artifact type, identity MAY be represented by:
+OIDC/federated short-lived authentication MUST be preferred when the destination
+supports it. Long-lived publishing credentials SHOULD NOT be introduced when a
+supported federated mechanism exists.
 
--   semantic version;
--   release tag;
--   commit SHA;
--   container digest;
--   immutable build identifier;
--   another equivalent immutable identifier.
+---
 
-Mutable aliases such as `latest`, `main`, or environment names MAY exist
-for convenience, but MUST NOT be the only means of identifying a
-delivered artifact when an immutable identity can be provided.
+## 6. Publication Verification and Recovery
 
-A production deployment MUST be traceable to the exact artifact that was
-deployed.
+A publish command succeeding is not sufficient. Each required destination MUST
+be remotely verified before its channel is considered complete.
 
-------------------------------------------------------------------------
+Release workflows MUST be idempotent. On retry, an already-published immutable
+identity MUST be verified against the expected release. If it is the expected
+publication, the channel is treated as already completed. If identity or content
+conflicts, Delivery MUST fail closed.
 
-## 5. Build Once and Deliver the Validated Artifact
+Multi-channel releases are not assumed to be transactional. A later-channel
+failure MUST resume the same release safely rather than create a new version
+solely because an earlier immutable channel already succeeded.
 
-When technically applicable, HM delivery pipelines SHOULD build an
-artifact once and deliver or promote that same validated artifact.
+---
 
-A release or deployment SHOULD NOT rebuild, repackage, or otherwise
-modify an artifact after the validation associated with that artifact
-has completed.
+## 7. NuGet Delivery Profile
 
-When multiple environments are used, promotion SHOULD preserve artifact
-identity whenever the platform and delivery model allow it.
+This profile applies whenever an HM project publishes a NuGet package.
 
-Environment-specific behavior SHOULD be provided through external
-configuration rather than by rebuilding environment-specific application
-binaries.
+The release workflow MUST:
 
-------------------------------------------------------------------------
+1. derive `PackageVersion` from `ReleaseVersion`;
+2. build/package once from the tagged source;
+3. produce the `.nupkg` and, for compiled reusable libraries, the applicable
+   `.snupkg`, portable PDBs, and Source Link information;
+4. validate the final package before publication;
+5. attest the exact distributable artifacts when supported;
+6. publish through NuGet Trusted Publishing/OIDC when available;
+7. verify the expected `PackageId + PackageVersion` remotely.
 
-## 6. Delivery Traceability
+### 7.1 Mandatory NuGet icon
 
-Every release or production deployment MUST provide sufficient
-traceability to reconstruct its delivery chain.
+Every HM NuGet package MUST have an icon. Absence of the icon is a publication
+blocker.
 
-The intended relationship is:
+Delivery validation MUST prove that:
 
-`source commit -> validated build -> immutable artifact -> release/deployment -> destination or environment`
+- package metadata declares the icon;
+- the referenced icon file exists in the project source;
+- the icon is included at the declared path inside the final `.nupkg`;
+- the packaged icon is a valid file of the declared/expected format.
 
-Where release tags are used, the tag MUST identify the source state
-associated with the released artifact.
+README, license, XML documentation, repository metadata, symbols, and other
+package contents MUST also be validated when required by the package definition.
 
-Where registries or package platforms are used, the published artifact
-SHOULD be traceable to its repository and source revision.
+Trusted Publisher configuration SHOULD be scoped to the intended repository,
+workflow, owner, package, and minimum publication capability supported by
+NuGet.org.
 
-Delivery automation SHOULD preserve identifiers that allow operators and
-developers to determine what version is currently deployed.
+---
 
-------------------------------------------------------------------------
+## 8. BSR Delivery Profile
 
-## 7. Environments
+This profile applies when canonical HM Protocol Buffer schemas are published to
+the Buf Schema Registry (BSR).
 
-Projects MAY define the environments required by their operational
-model.
+`buf format`, `buf lint`, `buf build`, and normal compatibility Quality checks
+MUST NOT be repeated by Delivery; they belong to the earlier Quality lifecycle.
 
-Examples include:
+BSR Delivery MUST:
 
--   development;
--   testing;
--   staging;
--   production.
+1. publish the canonical schema state associated with the release identity;
+2. use the release tag/identity defined by the release;
+3. remotely resolve and verify the resulting immutable BSR publication;
+4. verify that the remote schema content/descriptor corresponds to the expected
+   local release state;
+5. only after successful verification, persist the immutable BSR commit ID as
+   the last trusted BSR publication/baseline.
 
-This standard does not require every project to implement multiple
-environments.
+### 8.1 BSR publication retry
 
-Environment requirements MUST be driven by project risk, architecture,
-operational needs, and delivery complexity.
+The standard BSR publication policy is exactly two attempts. After the first
+failed publication attempt, the workflow MUST wait 10 seconds and retry once.
+If the second attempt fails, Delivery MUST fail.
 
-Git environments and Git branches MUST NOT be assumed to have a
-one-to-one relationship.
+The retry MUST NOT weaken post-publication identity/content verification.
 
-A project MAY use a simple integration model while promoting the same
-artifact through multiple execution environments.
+---
 
-------------------------------------------------------------------------
+## 9. NuGet + BSR Multi-Channel Profile
 
-## 8. Delivery Configuration
+A project MAY publish NuGet only, BSR only, or both. A channel that does not
+apply MUST NOT be introduced as an artificial dependency.
 
-Delivery configuration MUST remain appropriately separated from
-application source code.
+When both NuGet and BSR are channels of the same release, the mandatory order is:
 
-Configuration values SHOULD be scoped according to where they are
-required.
+`NuGet publish -> NuGet verify -> BSR publish -> BSR verify -> persist trusted BSR commit ID -> GitHub Release`
 
-For GitHub-based delivery:
+BSR MUST NOT begin until NuGet is `published` or independently verified as the
+already-correct publication for the same release identity.
 
--   sensitive values MUST use GitHub Secrets or an approved secure
-    secret management mechanism;
--   non-sensitive operational values SHOULD use GitHub Variables where
-    appropriate;
--   environment-specific values SHOULD be scoped to the corresponding
-    GitHub Environment when one exists.
+Both channels MUST represent the same `SourceCommit + ReleaseTag + ReleaseVersion`.
+Package-manager versioning and protobuf API compatibility versioning remain
+conceptually distinct even when coordinated by one release.
 
-The governing principle is:
+---
 
-**Sensitivity determines Secret vs Variable.\
-Scope determines Repository vs Environment.**
+## 10. GitHub Release Record
 
-Values belonging exclusively to a particular environment SHOULD NOT be
-given repository-wide scope without a concrete reason.
+For tag-driven public releases, the GitHub Release MUST be created or verified
+only after every required publication/deployment channel for that workflow has
+completed successfully.
 
-Delivery workflows MUST NOT unnecessarily duplicate configuration
-already owned by the runtime environment.
+The GitHub Release MUST correspond to the triggering tag. Release-specific notes
+SHOULD live in the release record rather than mutable static package metadata.
+The release workflow MUST be safe to retry if the GitHub Release already exists
+and corresponds to the expected tag/release identity.
 
-------------------------------------------------------------------------
+---
 
-## 9. Delivery Credentials and Permissions
+## 11. Container and VPS Delivery
 
-Delivery automation MUST follow the principle of least privilege.
+Container publication and deployment to an HM-managed VPS are governed by the
+companion standard:
 
-Credentials MUST receive only the permissions required for their
-delivery operation.
+`container-vps.md`
 
-Write or deployment permissions SHOULD be scoped to the smallest
-practical workflow, job, environment, repository, or artifact boundary.
+That profile extends this foundation with OCI identity, GHCR, final-image
+validation, immutable deployment, post-deployment health verification,
+known-good state, rollback, and local image retention.
 
-Long-lived credentials SHOULD be avoided when secure temporary or
-federated authentication is supported.
+---
 
-OIDC or equivalent short-lived identity mechanisms SHOULD be preferred
-when the destination platform supports them.
+## 12. Configuration and Environments
 
-Production credentials MUST NOT be exposed to workflows or jobs that do
-not require production access.
+Secrets MUST remain outside source control and use GitHub Secrets or another
+approved secret store. Non-sensitive workflow configuration SHOULD use scoped
+Variables. Environment-specific credentials/configuration SHOULD use GitHub
+Environments when appropriate.
 
-------------------------------------------------------------------------
+Sensitivity determines **Secret vs Variable**. Scope determines **Repository vs
+Environment**.
 
-## 10. Production Deployment
+Artifact, configuration, and secrets are separate concerns. Environment-specific
+behavior SHOULD be supplied through runtime configuration rather than rebuilding
+the artifact.
 
-Production deployment MUST occur only after the artifact and source
-state have passed all mandatory validations.
+---
 
-The deployed version MUST be identifiable.
+## 13. Exceptions and Evolution
 
-Where an executable application or service can be operationally
-verified, production deployment SHOULD include an appropriate
-post-deployment verification.
+Projects MAY define stricter controls. A deviation from a **MUST** requirement
+requires an explicit documented technical reason, scope, and consequences.
 
-Depending on the system, verification MAY include:
-
--   health checks;
--   smoke tests;
--   availability checks;
--   application startup verification;
--   other non-destructive operational checks.
-
-A deployment MUST NOT be considered successfully completed when its
-mandatory post-deployment verification fails.
-
-------------------------------------------------------------------------
-
-## 11. Rollback and Recovery
-
-Every production deployment MUST have a defined recovery or rollback
-strategy.
-
-The strategy MUST make it possible to restore an operationally
-acceptable state when a deployment fails or introduces unacceptable
-behavior.
-
-The mechanism MAY vary according to the architecture and delivery model.
-
-Examples include:
-
--   redeploying a previously validated artifact;
--   restoring a previous immutable container image;
--   switching to a previous application release;
--   platform-native rollback;
--   another documented recovery mechanism.
-
-Production rollback MUST NOT depend on rebuilding an unknown or
-historically different version of the application when a previously
-validated artifact can be retained and reused.
-
-Projects using staging or other operationally significant pre-production
-environments SHOULD define rollback or recovery there when project risk
-justifies it.
-
-Rollback procedures SHOULD be periodically validated when the
-operational risk of the project warrants it.
-
-------------------------------------------------------------------------
-
-## 12. Package and Artifact Publication
-
-Published packages and reusable artifacts MUST correspond to a validated
-source state.
-
-Publication MUST preserve a clear relationship between the published
-version and its source commit or release tag.
-
-When a single release is distributed through multiple channels, those
-distributions SHOULD originate from the same authoritative source state and
-release identity.
-
-Multi-channel publication SHOULD define an explicit order, idempotent recovery
-behavior, and a way to verify whether an already-published channel corresponds
-to the exact source state of the release being resumed. Partial publication
-failure SHOULD resume the same release when safe rather than create a new
-version solely because a later channel was temporarily unavailable.
-
-If two channels expose the same release identity but trace to conflicting
-source states, automation MUST stop rather than silently overwrite, relabel, or
-repair the inconsistency. Published immutable release identities SHOULD be
-corrected through a subsequent release when the defect exists in an already
-completed publication.
-
-Publication automation MUST NOT silently alter the semantics of an
-artifact after its release validation.
-
-Package-manager versioning and protocol/API compatibility versioning
-MUST remain distinct when both concepts exist.
-
-When a published package contains executable or debuggable code, the
-distribution SHOULD provide source mapping and debugging symbols when
-the target ecosystem, package format, and registry reasonably support
-them.
-
-The concrete mechanism is technology-specific and belongs to the
-applicable technology standard or project architecture. Source mapping
-and symbol publication MUST preserve traceability to the exact source
-state represented by the released artifact.
-
-Release-specific notes SHOULD be associated with the corresponding
-release or release artifact rather than maintained as static package
-metadata when doing so could cause historical release information to
-become stale or misleading.
-
-------------------------------------------------------------------------
-
-## 13. Provenance and Attestation
-
-Packages and distributable artifacts published to public or private
-registries SHOULD include provenance or attestation when the registry,
-build platform, and publication mechanism reasonably support it.
-
-Provenance SHOULD allow the published artifact to be associated with:
-
--   its source repository;
--   source commit;
--   release tag when applicable;
--   validated build or workflow;
--   publication process.
-
-The artifact represented by provenance SHOULD be the same artifact that
-was validated and published.
-
-Provenance and attestation provide evidence of artifact origin and build
-history but MUST NOT be assumed to be equivalent to a cryptographic
-package signature unless an actual signing mechanism is used.
-
-Projects MAY introduce explicit artifact signing when security or
-distribution requirements justify it.
-
-------------------------------------------------------------------------
-
-## 14. Client Version Awareness
-
-Client applications SHOULD be capable of identifying their deployed or
-installed version when doing so provides operational or user value.
-
-Web applications with long-lived client sessions SHOULD support
-detection of a newer deployed version when practical.
-
-When a newer version is detected, the application SHOULD provide an
-appropriate mechanism to inform the user that an update is available.
-
-Mobile and desktop applications SHOULD similarly support update
-awareness when appropriate to their distribution model.
-
-The delivery process SHOULD expose sufficient build or version identity
-to support these mechanisms.
-
-User-interface behavior and presentation of update notifications belong
-to the applicable client architecture or user-experience standards.
-
-------------------------------------------------------------------------
-
-## 15. Required Updates
-
-A client application MAY require an update when continuing with the
-installed or loaded version would create a concrete operational concern.
-
-Examples include:
-
--   incompatibility with backend contracts;
--   security vulnerabilities;
--   unsupported application versions;
--   required protocol changes;
--   other explicitly defined compatibility constraints.
-
-Normal releases SHOULD NOT force client updates without a concrete
-reason.
-
-Projects requiring forced-update behavior MUST define how minimum
-supported versions are determined and communicated.
-
-------------------------------------------------------------------------
-
-## 16. Manual Delivery
-
-Manual delivery MAY be supported when justified by the project.
-
-Manual execution MUST NOT bypass mandatory validation, traceability,
-credential protection, artifact identity, or production recovery
-requirements.
-
-A manually initiated production deployment MUST provide the same
-essential delivery guarantees as an automatically triggered deployment.
-
-------------------------------------------------------------------------
-
-## 17. Relationship with Repository Governance
-
-Repository governance determines how source changes are protected,
-validated, reviewed, and integrated.
-
-This standard begins at the delivery boundary and governs how validated
-source states become published or deployed software.
-
-A repository's branching strategy MUST NOT implicitly define its
-environment architecture unless the project explicitly chooses and
-documents that model.
-
-Protected branches, Pull Request integration, repository secrets,
-workflow security, and source-control traceability are governed by the
-applicable HM Git & GitHub Repository Governance Standard.
-
-------------------------------------------------------------------------
-
-## 18. Exceptions and Evolution
-
-Delivery architecture SHOULD evolve from real project requirements
-rather than from speculative complexity.
-
-This standard intentionally does not prescribe a universal:
-
--   release trigger;
--   branching strategy;
--   number of environments;
--   deployment platform;
--   artifact registry;
--   package manager;
--   container technology;
--   approval count;
--   rollback implementation;
--   deployment frequency.
-
-Projects MAY introduce stricter delivery controls according to
-operational, security, contractual, regulatory, or collaboration
-requirements.
-
-An intentional deviation from a **MUST** requirement MUST document:
-
--   the requirement being deviated from;
--   the reason;
--   the scope of the exception;
--   relevant security, quality, traceability, or operational
-    consequences.
+New delivery profiles SHOULD be added only when a real HM project establishes a
+new artifact or destination model. Existing profiles MUST be reused rather than
+redesigned per project.
