@@ -2,8 +2,8 @@
 
 **Component family:** `Hm.Logging.Providers.*`  
 **Repository / solution:** `Hm.Logging.Providers`  
-**Status:** Base architecture defined; Console v1 and Files v1 ready for implementation; ElasticSearch and EntityFramework detailed architecture pending  
-**Date:** 24 September 2026
+**Status:** Foundation architecture defined; Console v1 and Files v1 ready for implementation; ElasticSearch and EntityFramework detailed architecture pending  
+**Date:** 25 September 2026
 
 ---
 
@@ -106,7 +106,15 @@ Provider packages share a repository and source history but have independent rel
 
 A single source commit may be the source of releases for more than one provider. Each provider release remains an independent Delivery execution and must publish only the package identified by that release intent.
 
-The exact provider release-tag grammar and generic Delivery tag-parsing convention are intentionally not established by this architecture baseline. They must be decided before the first provider publication and aligned with the HM Release & Deployment Standard rather than invented ad hoc inside an individual provider workflow.
+Provider releases use a release-unit-qualified tag with the canonical grammar:
+
+```text
+<provider>-v<SemVer>
+```
+
+Provider identifiers are lowercase canonical release-unit names. Examples include `console-v1.0.0-preview.1` and, when enabled, `files-v1.0.0-preview.1`. The `v<SemVer>` suffix remains the source of `ReleaseVersion`; the provider prefix identifies the only package that Delivery is authorized to publish.
+
+Delivery is fail-closed. The accepted provider-prefix allowlist is enabled incrementally. The foundation initially accepts only `console-v<SemVer>`. `files`, `elasticsearch`, and `entityframework` MUST NOT become accepted release prefixes until the corresponding provider is implementation-complete, Quality-valid, documentation-complete, and explicitly approved for publication. An unknown, disabled, malformed, or ambiguous prefix MUST publish nothing.
 
 Solution-level Quality may validate the complete solution. Provider-specific Delivery must not publish unrelated provider packages merely because they share the same repository.
 
@@ -591,7 +599,69 @@ Quality should validate the complete solution where applicable so integration pr
 
 Each public provider NuGet package must independently satisfy the HM NuGet Delivery Profile, including the mandatory package icon and applicable package validation, symbols, source mapping, provenance, and remote publication verification requirements.
 
-Provider-specific Delivery must publish only the provider represented by the release intent. The exact multi-package tag convention remains an explicit pre-publication design item.
+Provider-specific Delivery must publish only the provider represented by the release intent. Provider tags use `<provider>-v<SemVer>`, and the workflow MUST validate the provider against the currently enabled release-unit allowlist before artifact creation or publication. The initial allowlist contains only `console`.
+
+### 9.1 Repository delivery configuration
+
+The foundation must establish the repository-side Quality and Delivery configuration from the beginning. For the current NuGet-only provider releases:
+
+- `SONAR_TOKEN` is a GitHub Repository Secret used by Sonar analysis.
+- `NUGET_USERNAME` is non-sensitive repository configuration and is stored as a GitHub Repository Variable for NuGet Trusted Publishing login.
+- a long-lived `NUGET_API_KEY` MUST NOT be stored; NuGet publication uses Trusted Publishing/OIDC and a short-lived credential.
+- `id-token: write` is granted only to the job that requires OIDC publication/attestation.
+- NuGet.org Trusted Publisher configuration must explicitly authorize the `Hm.Logging.Providers` repository/workflow with the narrowest supported scope.
+
+Additional secrets or variables MUST NOT be copied from other HM repositories unless this repository has a concrete requirement for them.
+
+### 9.2 Developer documentation and package documentation
+
+Documentation is part of provider product completeness, not post-release cleanup. The repository uses three complementary DX layers:
+
+1. the root `README.md` documents the Providers ecosystem, its relationship with Core, the common registration model, and a concise catalog of providers that are actually available;
+2. each provider project owns a provider-specific `README.md` containing installation of that NuGet package, registration, configuration/options/defaults, practical examples, provider-specific behavior, and relevant operational considerations;
+3. public .NET APIs use XML documentation so package consumers receive IntelliSense documentation.
+
+The provider-specific README MUST be packed into that provider's NuGet package and used as its NuGet package README. The root README MUST remain concise and MUST NOT duplicate exhaustive provider-specific documentation. A provider MUST NOT be presented as publicly available in the root README before its publication readiness has been established.
+
+### 9.3 Providers repository branching and integration model
+
+`main` is the stable, publicable integration line. `develop` is the controlled integration line for the provider currently under development. Both act as protected integration boundaries and normal development changes reach them through Pull Requests.
+
+Only one provider is integrated through `develop` at a time. This prevents incomplete work for a later provider from becoming part of the source state intended for publication of the current provider.
+
+Work branches are created from `develop` and follow the canonical repository convention:
+
+```text
+<type>/hm-logging-providers/<provider>/<description>
+```
+
+`type`, provider, and description use lowercase names; descriptions use kebab-case. Examples:
+
+```text
+feat/hm-logging-providers/console/initial-implementation
+test/hm-logging-providers/console/output-routing
+docs/hm-logging-providers/console/developer-guide
+fix/hm-logging-providers/console/stderr-routing
+```
+
+Commits and Pull Requests must identify the affected provider and purpose clearly. Conventional-style commit scopes SHOULD use the provider name where applicable, for example `feat(console): ...`, `test(console): ...`, `docs(console): ...`, and `fix(console): ...`.
+
+The provider workflow is:
+
+```text
+develop
+    -> work branch
+    -> Pull Request to develop + applicable PR Quality
+    -> merge to develop
+    -> repeat until provider complete
+    -> Pull Request develop -> main + applicable PR Quality
+    -> merge to main
+    -> Main Quality eligibility
+    -> <provider>-v<SemVer>
+    -> provider-specific Delivery
+```
+
+Work branches are temporary. Provider completion does not create a permanent provider branch. After successful integration, `develop` continues from the updated `main` baseline before work on the next provider begins.
 
 ---
 
@@ -611,6 +681,9 @@ The current Providers baseline establishes these invariants:
 10. Console v1 and Files v1 are architecturally ready for implementation.
 11. ElasticSearch and EntityFramework must complete detailed architecture before implementation.
 12. Implementation details must not silently become new ecosystem semantics.
+13. Provider Delivery is release-unit-specific and fail-closed; only explicitly enabled provider prefixes may publish.
+14. `main` is publicable state and `develop` integrates only the provider currently under development.
+15. Consumer-facing DX documentation is part of provider completeness and is packaged per provider.
 
 ---
 
@@ -642,7 +715,6 @@ The architecture document must evolve when later provider decisions are approved
 
 The following items are deliberately open and must not be inferred from implementation convenience:
 
-- exact provider release-tag grammar and generic Delivery parsing for independent packages in the shared repository;
 - detailed ElasticSearch architecture;
 - detailed EntityFramework architecture;
 - any future dependency policy that would intentionally permit one provider to depend on another;
@@ -655,6 +727,6 @@ These open items do not block implementation of Console or Files.
 
 ## 13. Current Architectural Baseline
 
-As of 24 September 2026, the `Hm.Logging.Providers` solution architecture, common provider responsibilities, Console v1 architecture, and Files v1 architecture are defined and ready for implementation.
+As of 25 September 2026, the `Hm.Logging.Providers` solution architecture, common provider responsibilities, Console v1 architecture, and Files v1 architecture are defined and ready for implementation.
 
 ElasticSearch and EntityFramework remain approved members of the initial provider catalog but require separate detailed architecture work before implementation. This document is the canonical place to incorporate those decisions as they are established.

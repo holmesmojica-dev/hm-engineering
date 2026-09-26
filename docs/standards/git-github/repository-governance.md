@@ -395,3 +395,13 @@ MUST NOT use the tag as a bypass around repository Quality gates.
 Workflow permissions MUST default to read-only and be elevated at job scope only
 for the operation that requires them, including OIDC attestation/publication,
 registry publication, deployment, or GitHub Release creation.
+---
+
+## 17. Project-Specific Branch Naming and Intermediate Integration
+
+A project MAY define a protected intermediate integration branch such as `develop` when it provides a real quality/integration boundary before `main`. When used, Pull Requests into that branch MUST run the applicable PR Quality checks; promotion from that branch to `main` MUST itself occur through a Pull Request and preserve the standard Main eligibility boundary.
+
+Project architecture MAY define a machine-validatable branch naming grammar when stronger traceability is useful. Such a grammar SHOULD encode the change type, project/repository identity, affected component or release unit, and a concise description. Repository automation MAY reject non-conforming branch names when the project has declared the convention mandatory.
+
+An intermediate integration branch MUST NOT become an alternate release source unless an applicable Delivery standard explicitly permits it. Under the standard HM release model, Delivery remains tied to eligible commits in `main` history.
+

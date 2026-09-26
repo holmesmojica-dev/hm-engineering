@@ -20,9 +20,9 @@ The standard progression is:
 
 `Local/Pre-Commit -> Pull Request -> Main Quality -> Eligible Main Commit -> Release Tag -> Delivery`
 
-For the delivery profiles defined by HM, a pushed release tag `v<SemVer>` is the
-explicit delivery intent and the source of the public `ReleaseVersion`.
-Delivery MUST verify Quality eligibility; it MUST NOT rerun normal Quality.
+For the delivery profiles defined by HM, a pushed release tag is the explicit delivery intent and the source of the public `ReleaseVersion`. A repository with one release unit uses `v<SemVer>`. A repository containing independently versioned release units MAY qualify that identity using `<release-unit>-v<SemVer>` when its project architecture defines the canonical release-unit names and publication mapping.
+
+For a qualified tag, the `v<SemVer>` segment remains the source of `ReleaseVersion`, while the release-unit prefix identifies the only artifact/package set authorized for that Delivery execution. Delivery MUST verify Quality eligibility; it MUST NOT rerun normal Quality.
 
 Public release tags MUST NOT contain SemVer build metadata (`+...`) when the
 same release identity is exposed through registries that cannot represent it
@@ -35,7 +35,7 @@ consistently.
 Before producing or publishing an artifact, Delivery MUST fail closed unless it
 can establish all applicable guarantees:
 
-1. the release tag has the project's accepted `v<SemVer>` grammar;
+1. the release tag has the project's accepted release grammar (`v<SemVer>` or an explicitly governed release-unit-qualified grammar);
 2. the exact commit referenced by the tag is resolved;
 3. that commit belongs to `main` history; it need not be current `main` HEAD;
 4. that commit is eligible for Delivery because the mandatory Main gate passed;
@@ -49,6 +49,14 @@ The resulting release identity is:
 
 Every artifact/channel produced by the same release workflow MUST represent
 that same release identity.
+
+---
+
+### 3.1 Multi-release-unit repositories
+
+When independently versioned artifacts share one repository, Delivery MUST fail closed on release-unit selection. The repository MUST define an explicit mapping from each enabled release-unit identifier to the artifact/package identity it may publish. Unknown, disabled, malformed, or ambiguous release-unit identifiers MUST publish nothing.
+
+Release-unit identifiers SHOULD be enabled incrementally when each unit becomes publication-ready rather than pre-authorizing future artifacts. A release workflow MUST NOT publish unrelated artifacts merely because they are present in the same source commit.
 
 ---
 
