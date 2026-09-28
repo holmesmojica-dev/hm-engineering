@@ -3,10 +3,12 @@
 **Component:** `Hm.Logging.Contracts`\
 **Protocol:** `hm.logging.contracts.v1`\
 **NuGet package:** `HDev.Hm.Logging.Contracts`\
-**Status:** Contracts v1 architecture implemented and publicly released as `v1.0.0-preview.1`\
+**Status:** Contracts v1 architecture implemented and publicly distributed\
 **Date:** 22 September 2026
 
 ------------------------------------------------------------------------
+
+> **Documentation stability:** Concrete package versions are release-state data, not architectural dependencies. Architecture names components, packages, protocols, compatibility lines, and versioning rules only where semantically required; it must not require edits merely because a package is republished at a newer compatible version.
 
 ## 1. Purpose
 
@@ -150,13 +152,7 @@ Therefore:
 -   `hm.logging.contracts.v1` corresponds to package `1.x.x`.
 -   `hm.logging.contracts.v2` corresponds to package `2.x.x`.
 
-The first preview release of Contracts is therefore expected to be:
-
-``` text
-1.0.0-preview.1
-```
-
-and not `0.1.0-preview.1`.
+Contracts package releases within protocol v1 use the `1.x.x` major line. Preview maturity is expressed through SemVer prerelease identifiers; no architecture rule depends on a particular concrete package release.
 
 ### 4.3 Preview maturity
 
@@ -1640,7 +1636,7 @@ implementation:
 -   Generated C# namespace is `Hm.Logging.Contracts`.
 -   NuGet package is `HDev.Hm.Logging.Contracts`.
 -   Package major equals protocol major.
--   Initial preview versioning begins at `1.0.0-preview.1`.
+-   Preview releases use the protocol-aligned major line and SemVer prerelease identifiers.
 -   Preview maturity is not encoded in protobuf identities.
 -   `LogLevel` preserves Trace=0 through Critical=5.
 -   Optional domain scalars preserve protobuf presence where required.
@@ -1719,7 +1715,7 @@ implementation:
     conflicting source identities across channels block automation.
 -   Service runtime expiration policy remains outside Contracts.
 
-This baseline is implemented and publicly distributed as `v1.0.0-preview.1`.
+This baseline is implemented and publicly distributed. Concrete release versions belong to release records rather than this architecture specification.
 It is now the compatibility baseline for Contracts v1. Future Contracts work is
 maintenance or intentional compatible evolution unless an explicit new protocol
 version is approved.

@@ -6,6 +6,8 @@
 
 ---
 
+> **Documentation stability:** Concrete package versions are release-state data, not architectural dependencies. Architecture names components, packages, protocols, compatibility lines, and versioning rules only where semantically required; it must not require edits merely because a package is republished at a newer compatible version.
+
 ## 1. Purpose
 
 This document defines the architecture of the official provider family for HM Logging.

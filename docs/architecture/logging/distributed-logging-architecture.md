@@ -1,10 +1,12 @@
+
+> **Documentation stability:** Concrete package versions are release-state data, not architectural dependencies. Architecture names components, packages, protocols, compatibility lines, and versioning rules only where semantically required; it must not require edits merely because a package is republished at a newer compatible version.
 # HM Logging — Distributed Logging Architecture
 
 **Architecture baseline:** 22 September 2026
 
 | Property | Value |
 |---|---|
-| **Status** | Architecture defined; Contracts v1 published as v1.0.0-preview.1 through NuGet and BSR |
+| **Status** | Architecture defined; Contracts v1 implemented and publicly distributed through NuGet and BSR |
 | **Date** | 22 September 2026 |
 | **Scope** | Technology-independent distributed logging architecture |
 | **Relationship to domain** | Builds on HM Logging Domain without modifying its fundamental semantics |
@@ -294,7 +296,7 @@ Because non-.NET clients are an explicit requirement, protocol decisions must be
 
 ## 19. Open Design Items
 
-The Contracts v1 wire-level decisions previously tracked here are defined by `docs/architecture/logging/contracts-architecture.md` and are implemented and publicly distributed as `v1.0.0-preview.1`. Release versioning, BSR publication, release automation, provenance/attestation, cross-registry coherence, recovery/idempotency, and baseline persistence are completed delivery concerns and do not reopen the distributed Flow semantics defined here.
+The Contracts v1 wire-level decisions previously tracked here are defined by `docs/architecture/logging/contracts-architecture.md` and are implemented and publicly distributed. Release versioning, BSR publication, release automation, provenance/attestation, cross-registry coherence, recovery/idempotency, and baseline persistence are completed delivery concerns and do not reopen the distributed Flow semantics defined here.
 
 The remaining open items belong to the distributed runtime / `Hm.Logging.Service` design:
 
@@ -318,4 +320,4 @@ The remaining open items belong to the distributed runtime / `Hm.Logging.Service
 
 ## 21. Current Architectural Baseline
 
-This document is the current baseline for distributed logging architecture. Contracts v1 wire-level decisions are defined by `docs/architecture/logging/contracts-architecture.md`; the approved protocol is implemented and publicly released as `v1.0.0-preview.1` through NuGet and BSR. The v1 public preview is now the compatibility baseline. Remaining open architecture items are Service/runtime concerns. Later implementation details may refine operational behavior, but changes to the established invariants above should be treated as explicit architectural decisions rather than incidental code changes.
+This document is the current baseline for distributed logging architecture. Contracts v1 wire-level decisions are defined by `docs/architecture/logging/contracts-architecture.md`; the approved protocol is implemented and publicly distributed through NuGet and BSR. The published v1 wire contract is the compatibility baseline. Remaining open architecture items are Service/runtime concerns. Later implementation details may refine operational behavior, but changes to the established invariants above should be treated as explicit architectural decisions rather than incidental code changes.
