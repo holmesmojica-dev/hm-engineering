@@ -2,8 +2,7 @@
 
 **Component family:** `Hm.Logging.Providers.*`  
 **Repository / solution:** `Hm.Logging.Providers`  
-**Status:** Foundation architecture defined; Console v1 and Files v1 ready for implementation; ElasticSearch and EntityFramework detailed architecture pending  
-**Date:** 25 September 2026
+**Status:** Foundation architecture defined; Console implemented and available through NuGet; Files architecture ready for implementation; ElasticSearch and EntityFramework detailed architecture pending
 
 ---
 
@@ -81,7 +80,7 @@ The initial implementation order is:
 3. ElasticSearch
 4. EntityFramework
 
-Console and Files have completed their v1 architectural design and may enter implementation. ElasticSearch and EntityFramework require dedicated architecture work before implementation.
+Console is implemented and available through its approved NuGet package. Files has completed its architectural design and may enter implementation. ElasticSearch and EntityFramework require dedicated architecture work before implementation.
 
 ### 3.2 Independent packages
 
@@ -112,7 +111,7 @@ Provider releases use a release-unit-qualified tag with the canonical grammar:
 <provider>-v<SemVer>
 ```
 
-Provider identifiers are lowercase canonical release-unit names. Examples include `console-v1.0.0-preview.1` and, when enabled, `files-v1.0.0-preview.1`. The `v<SemVer>` suffix remains the source of `ReleaseVersion`; the provider prefix identifies the only package that Delivery is authorized to publish.
+Provider identifiers are lowercase canonical release-unit names. The `v<SemVer>` suffix remains the source of `ReleaseVersion`; the provider prefix identifies the only package that Delivery is authorized to publish.
 
 Delivery is fail-closed. The accepted provider-prefix allowlist is enabled incrementally. The foundation initially accepts only `console-v<SemVer>`. `files`, `elasticsearch`, and `entityframework` MUST NOT become accepted release prefixes until the corresponding provider is implementation-complete, Quality-valid, documentation-complete, and explicitly approved for publication. An unknown, disabled, malformed, or ambiguous prefix MUST publish nothing.
 
@@ -244,7 +243,7 @@ public bool UseColors { get; set; } = true;
 
 Colors apply only to Text output. `UseColors = false` produces Text without color control sequences. JSON never contains terminal color codes and ignores this option.
 
-When enabled, colors are selected from a fixed HM palette according to Log Level. The palette is not consumer-configurable in v1. Exact terminal color values are an implementation detail.
+When enabled, colors are selected from a fixed HM palette according to Log Level. The palette is not consumer-configurable in the current architecture. Exact terminal color values are an implementation detail.
 
 ### 5.5 stdout and stderr
 
@@ -297,7 +296,7 @@ AddLoggingFiles(...)
 
 The provider is Singleton because its instance owns coordinated runtime state including file-level exclusion, daily maintenance state, and optional managed-storage accounting.
 
-The provider does not run a background worker, timer, or `IHostedService` in v1. Maintenance is demand-driven by writes.
+The provider does not run a background worker, timer, or `IHostedService` in the current architecture. Maintenance is demand-driven by writes.
 
 ### 6.2 FilesProviderOptions
 
@@ -425,7 +424,7 @@ logs/
 
 Source normalization must be deterministic and safe for filesystem use. It must prevent path traversal and neutralize path separators and invalid path characters. The approved conceptual behavior includes lowercase normalization and conversion of spaces to `-`; the exact sanitization algorithm is an implementation detail provided that the same Source deterministically maps to the same safe container.
 
-A missing, empty, or whitespace-only Source maps to the fixed container name `unknown`. This fallback is not configurable in v1.
+A missing, empty, or whitespace-only Source maps to the fixed container name `unknown`. This fallback is not configurable in the current architecture.
 
 A Source directory is created lazily when needed. When Files-managed cleanup leaves a Source directory empty, that empty Source directory is removed. It is recreated if the Source later produces logs. The root `DirectoryPath` remains.
 
@@ -525,7 +524,7 @@ The exact synchronization primitives, lock registry, reservation strategy, and i
 
 The concurrency guarantee is process/provider-instance local. Files does not provide a distributed filesystem lock for multiple application processes or replicas writing the same physical file. Deployments requiring multiple writers should use separate physical paths/files per instance or a centralized provider designed for that topology.
 
-Files v1 does not introduce a background queue, batching pipeline, generic retries, or background writer.
+Files does not introduce a background queue, batching pipeline, generic retries, or background writer.
 
 ### 6.13 Write completion and durability
 
@@ -547,7 +546,7 @@ Files must not swallow failures, perform generic retries, or call Core observabi
 
 ### 6.15 Configuration stability
 
-`FilesProviderOptions` is stable for the lifetime of the Singleton provider. Files v1 does not hot-reload `DirectoryPath`, `GroupBySource`, `RetentionDays`, `MaximumFileSize`, `MaximumTotalSize`, or `Format`.
+`FilesProviderOptions` is stable for the lifetime of the Singleton provider. Files does not hot-reload `DirectoryPath`, `GroupBySource`, `RetentionDays`, `MaximumFileSize`, `MaximumTotalSize`, or `Format`.
 
 A new configuration takes effect through a new provider/application lifecycle.
 
@@ -678,7 +677,7 @@ The current Providers baseline establishes these invariants:
 7. Provider registration uses explicit `IServiceCollection` extensions named `AddLoggingXxx`; no `HmLoggingBuilder` is introduced.
 8. Provider lifetime is selected per destination; Singleton is not universal.
 9. Provider packages are independently consumable and independently versioned.
-10. Console v1 and Files v1 are architecturally ready for implementation.
+10. Console is implemented and publicly consumable through NuGet; Files is architecturally ready for implementation.
 11. ElasticSearch and EntityFramework must complete detailed architecture before implementation.
 12. Implementation details must not silently become new ecosystem semantics.
 13. Provider Delivery is release-unit-specific and fail-closed; only explicitly enabled provider prefixes may publish.
@@ -693,21 +692,17 @@ The approved progression is incremental rather than waiting for every provider t
 
 ```text
 Providers base architecture
-    -> Console architecture
-    -> Console implementation / validation / publication
-    -> Files architecture
+    -> Console available as an implemented provider
     -> Files implementation / validation / publication
     -> ElasticSearch dedicated architecture
-    -> architecture document update
     -> ElasticSearch implementation / validation / publication
     -> EntityFramework dedicated architecture
-    -> architecture document update
     -> EntityFramework implementation / validation / publication
 ```
 
-Console and Files architecture is already complete in this baseline, so implementation may begin after this documentation state is committed.
+Console is available as an implemented provider. Files is the next provider whose approved architecture is ready for implementation.
 
-The architecture document must evolve when later provider decisions are approved. It should record meaningful architectural milestones and not incidental implementation changes.
+This architecture document evolves only when architectural decisions change or new provider architecture is approved. It records the current architectural truth, not implementation history, release history, package versions, or incidental development milestones.
 
 ---
 
@@ -721,12 +716,12 @@ The following items are deliberately open and must not be inferred from implemen
 - any future provider-specific retry behavior;
 - any future hot-reload requirement.
 
-These open items do not block implementation of Console or Files.
+These open items do not affect the implemented Console provider and do not block implementation of Files.
 
 ---
 
 ## 13. Current Architectural Baseline
 
-As of 25 September 2026, the `Hm.Logging.Providers` solution architecture, common provider responsibilities, Console v1 architecture, and Files v1 architecture are defined and ready for implementation.
+The `Hm.Logging.Providers` solution architecture and common provider responsibilities are defined. Console is implemented and available through NuGet, while Files has approved architecture and is ready for implementation.
 
 ElasticSearch and EntityFramework remain approved members of the initial provider catalog but require separate detailed architecture work before implementation. This document is the canonical place to incorporate those decisions as they are established.

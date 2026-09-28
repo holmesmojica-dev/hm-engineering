@@ -98,9 +98,12 @@ A publish command succeeding is not sufficient. Each required destination MUST
 be remotely verified before its channel is considered complete.
 
 Release workflows MUST be idempotent. On retry, an already-published immutable
-identity MUST be verified against the expected release. If it is the expected
-publication, the channel is treated as already completed. If identity or content
-conflicts, Delivery MUST fail closed.
+identity MUST be verified against the expected release. Treating a remote artifact
+as already completed requires verification of both its release identity and its
+content equivalence with the artifact validated for the current Delivery execution.
+Content equivalence MUST use an artifact-aware mechanism that remains valid across
+legitimate destination transformations. Missing, invalid, or mismatched identity or
+content evidence MUST fail closed.
 
 Multi-channel releases are not assumed to be transactional. A later-channel
 failure MUST resume the same release safely rather than create a new version
@@ -121,7 +124,15 @@ The release workflow MUST:
 4. validate the final package before publication;
 5. attest the exact distributable artifacts when supported;
 6. publish through NuGet Trusted Publishing/OIDC when available;
-7. verify the expected `PackageId + PackageVersion` remotely.
+7. verify the expected `PackageId + PackageVersion` remotely;
+8. verify NuGet package content equivalence before accepting an existing remote
+   package during recovery or declaring a newly published package complete.
+
+NuGet content equivalence MUST compare package content semantics rather than raw
+`.nupkg` file bytes, because repository signing may legitimately change the archive
+bytes after publication. Signed remote packages MUST have their signature integrity
+validated before their content identity is trusted. Missing, invalid, or mismatched
+content identity MUST fail closed.
 
 ### 7.1 Mandatory NuGet icon
 
