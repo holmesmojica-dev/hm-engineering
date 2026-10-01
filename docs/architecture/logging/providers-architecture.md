@@ -2,7 +2,7 @@
 
 **Component family:** `Hm.Logging.Providers.*`  
 **Repository / solution:** `Hm.Logging.Providers`  
-**Status:** Foundation architecture defined; Console implemented and available through NuGet; Files architecture ready for implementation; ElasticSearch and EntityFramework detailed architecture pending
+**Status:** Provider-family architecture defined; Console and Files provider-specific architecture defined; ElasticSearch and EntityFramework provider-specific architecture not yet defined
 
 ---
 
@@ -14,7 +14,7 @@ This document defines the architecture of the official provider family for HM Lo
 
 Providers are destination adapters for the Core `Hm.Logging` pipeline. They receive a `LogEntry` that Core has already validated, normalized, enriched, and merged with applicable context, and they adapt that entry only as required by the destination they own.
 
-This document is the authoritative architecture specification for the `Hm.Logging.Providers` solution and for provider-specific decisions that have been approved. It is intentionally evolutionary: provider sections are completed when that provider reaches architectural readiness. A provider whose detailed design is still pending must not be implemented by inventing missing architecture in code.
+This document is the authoritative architecture specification for the `Hm.Logging.Providers` solution and for provider-specific decisions that have been explicitly approved. It evolves only through architectural decisions. A provider whose detailed design is not defined here must not acquire architecture implicitly through implementation choices.
 
 ### 1.1 Source-of-truth hierarchy
 
@@ -75,14 +75,9 @@ Hm.Logging.Providers.ElasticSearch
 Hm.Logging.Providers.EntityFramework
 ```
 
-The initial implementation order is:
+The provider catalog does not define a permanent implementation or release order. Provider-specific architecture may be established independently as ecosystem needs evolve.
 
-1. Console
-2. Files
-3. ElasticSearch
-4. EntityFramework
-
-Console is implemented and available through its approved NuGet package. Files has completed its architectural design and may enter implementation. ElasticSearch and EntityFramework require dedicated architecture work before implementation.
+Console and Files have provider-specific architecture defined by this document. ElasticSearch and EntityFramework retain their approved identities and responsibility boundaries, while their detailed provider-specific architecture requires separate explicit architectural decisions.
 
 ### 3.2 Independent packages
 
@@ -115,7 +110,7 @@ Provider releases use a release-unit-qualified tag with the canonical grammar:
 
 Provider identifiers are lowercase canonical release-unit names. The `v<SemVer>` suffix remains the source of `ReleaseVersion`; the provider prefix identifies the only package that Delivery is authorized to publish.
 
-Delivery is fail-closed. The accepted provider-prefix allowlist is enabled incrementally. The foundation initially accepts only `console-v<SemVer>`. `files`, `elasticsearch`, and `entityframework` MUST NOT become accepted release prefixes until the corresponding provider is implementation-complete, Quality-valid, documentation-complete, and explicitly approved for publication. An unknown, disabled, malformed, or ambiguous prefix MUST publish nothing.
+Delivery is fail-closed. A provider release unit must be explicitly registered and publication-enabled before its release prefix is accepted. Publication enablement requires the provider to satisfy the applicable Quality, documentation, packaging, and Delivery requirements. An unknown, disabled, malformed, or ambiguous prefix MUST publish nothing.
 
 Solution-level Quality may validate the complete solution. Provider-specific Delivery must not publish unrelated provider packages merely because they share the same repository.
 
@@ -600,7 +595,7 @@ Quality should validate the complete solution where applicable so integration pr
 
 Each public provider NuGet package must independently satisfy the HM NuGet Delivery Profile, including the mandatory package icon and applicable package validation, symbols, source mapping, provenance, and remote publication verification requirements.
 
-Provider-specific Delivery must publish only the provider represented by the release intent. Provider tags use `<provider>-v<SemVer>`, and the workflow MUST validate the provider against the currently enabled release-unit allowlist before artifact creation or publication. The initial allowlist contains only `console`.
+Provider-specific Delivery must publish only the provider represented by the release intent. Provider tags use `<provider>-v<SemVer>`, and the workflow MUST validate the provider against the currently enabled release-unit allowlist before artifact creation or publication.
 
 ### 9.1 Repository delivery configuration
 
@@ -679,8 +674,8 @@ The current Providers baseline establishes these invariants:
 7. Provider registration uses explicit `IServiceCollection` extensions named `AddLoggingXxx`; no `HmLoggingBuilder` is introduced.
 8. Provider lifetime is selected per destination; Singleton is not universal.
 9. Provider packages are independently consumable and independently versioned.
-10. Console is implemented and publicly consumable through NuGet; Files is architecturally ready for implementation.
-11. ElasticSearch and EntityFramework must complete detailed architecture before implementation.
+10. Console and Files have defined provider-specific architecture under the common provider-family rules.
+11. ElasticSearch and EntityFramework detailed provider-specific architecture is not defined by this baseline and requires explicit architectural decisions.
 12. Implementation details must not silently become new ecosystem semantics.
 13. Provider Delivery is release-unit-specific and fail-closed; only explicitly enabled provider prefixes may publish.
 14. `main` is publicable state and `develop` integrates only the provider currently under development.
@@ -688,23 +683,11 @@ The current Providers baseline establishes these invariants:
 
 ---
 
-## 11. Current Implementation Plan
+## 11. Architecture Evolution
 
-The approved progression is incremental rather than waiting for every provider to be fully designed:
+Provider architecture evolves through explicit architectural decisions rather than implementation milestones or release history. The presence of a provider in the catalog establishes its identity and broad responsibility boundary; detailed provider behavior must be defined here before it can be treated as architectural truth.
 
-```text
-Providers base architecture
-    -> Console available as an implemented provider
-    -> Files implementation / validation / publication
-    -> ElasticSearch dedicated architecture
-    -> ElasticSearch implementation / validation / publication
-    -> EntityFramework dedicated architecture
-    -> EntityFramework implementation / validation / publication
-```
-
-Console is available as an implemented provider. Files is the next provider whose approved architecture is ready for implementation.
-
-This architecture document evolves only when architectural decisions change or new provider architecture is approved. It records the current architectural truth, not implementation history, release history, package versions, or incidental development milestones.
+This document records the current architectural model only. Implementation status, publication state, package versions, release chronology, and project sequencing belong to project/release documentation rather than this architecture specification.
 
 ---
 
@@ -718,12 +701,12 @@ The following items are deliberately open and must not be inferred from implemen
 - any future provider-specific retry behavior;
 - any future hot-reload requirement.
 
-These open items do not affect the implemented Console provider and do not block implementation of Files.
+These open items do not alter the provider-family architecture or the provider-specific architecture already defined for Console and Files.
 
 ---
 
 ## 13. Current Architectural Baseline
 
-The `Hm.Logging.Providers` solution architecture and common provider responsibilities are defined. Console is implemented and available through NuGet, while Files has approved architecture and is ready for implementation.
+The `Hm.Logging.Providers` solution architecture and common provider responsibilities are defined. Console and Files have provider-specific architecture defined under that common model.
 
-ElasticSearch and EntityFramework remain approved members of the initial provider catalog but require separate detailed architecture work before implementation. This document is the canonical place to incorporate those decisions as they are established.
+ElasticSearch and EntityFramework remain members of the provider catalog with established identity and responsibility boundaries, but their detailed provider-specific architecture is not defined by this baseline. This document is the canonical place to incorporate those decisions when they are explicitly established.
