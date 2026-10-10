@@ -116,6 +116,10 @@ Solution-level Quality may validate the complete solution. Provider-specific Del
 
 ---
 
+### Core provider identity and selective routing (approved; implementation pending)
+
+The cross-provider identity and routing contract is defined in [`core-provider-routing-architecture.md`](core-provider-routing-architecture.md). `ILogProvider` will expose a `Guid ProviderId` identifying each registered instance. `AddLoggingXxx` extensions will accept an optional identifier and generate one when omitted; concrete registration remains owned by each provider package. Core will support optional target selection, reject unknown destinations with an exception before dispatch, and report write failures with `ProviderFailureContext.ProviderId` instead of `ProviderType`. These are **planned coordinated contract changes**, not claims about the currently published packages. Deferred persistence failure observers for ElasticSearch remain outside this decision.
+
 ## 4. Common Provider Contract
 
 ### 4.1 Core boundary
