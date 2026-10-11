@@ -2,7 +2,7 @@
 
 **Component family:** `Hm.Logging.Providers.*`  
 **Repository / solution:** `Hm.Logging.Providers`  
-**Status:** Provider-family architecture defined; Console and Files provider-specific architecture defined; ElasticSearch and EntityFramework provider-specific architecture not yet defined
+**Status:** Provider-family architecture established; Console and Files provider-specific architecture defined. Other destinations require new explicit architectural decisions.
 
 ---
 
@@ -71,13 +71,11 @@ The initial provider projects are:
 ```text
 Hm.Logging.Providers.Console
 Hm.Logging.Providers.Files
-Hm.Logging.Providers.ElasticSearch
-Hm.Logging.Providers.EntityFramework
 ```
 
 The provider catalog does not define a permanent implementation or release order. Provider-specific architecture may be established independently as ecosystem needs evolve.
 
-Console and Files have provider-specific architecture defined by this document. ElasticSearch and EntityFramework retain their approved identities and responsibility boundaries, while their detailed provider-specific architecture requires separate explicit architectural decisions.
+Console and Files are the currently defined provider implementations. Additional destinations are not part of the approved provider catalog unless separately proposed and approved. Elasticsearch may be used as an external observability backend through log collection/forwarding without requiring a direct HM provider.
 
 ### 3.2 Independent packages
 
@@ -88,8 +86,6 @@ Approved package IDs are:
 ```text
 HDev.Hm.Logging.Providers.Console
 HDev.Hm.Logging.Providers.Files
-HDev.Hm.Logging.Providers.ElasticSearch
-HDev.Hm.Logging.Providers.EntityFramework
 ```
 
 Each provider references `HDev.Hm.Logging.Core` and implements the provider abstraction exposed by Core. Core must never reference provider packages.
@@ -116,9 +112,9 @@ Solution-level Quality may validate the complete solution. Provider-specific Del
 
 ---
 
-### Core provider identity and selective routing (approved; implementation pending)
+### Core provider identity and selective routing (implemented)
 
-The cross-provider identity and routing contract is defined in [`core-provider-routing-architecture.md`](core-provider-routing-architecture.md). `ILogProvider` will expose a `Guid ProviderId` identifying each registered instance. `AddLoggingXxx` extensions will accept an optional identifier and generate one when omitted; concrete registration remains owned by each provider package. Core will support optional target selection, reject unknown destinations with an exception before dispatch, and report write failures with `ProviderFailureContext.ProviderId` instead of `ProviderType`. These are **planned coordinated contract changes**, not claims about the currently published packages. Deferred persistence failure observers for ElasticSearch remain outside this decision.
+The cross-provider identity and routing contract is defined in [`core-provider-routing-architecture.md`](core-provider-routing-architecture.md). `ILogProvider` exposes a `Guid ProviderId` identifying each registered instance. `AddLoggingXxx` extensions accept an optional identifier and generate one when omitted; concrete registration remains owned by each provider package. Core supports optional target selection, rejects unknown destinations with an exception before dispatch, and reports write failures using `ProviderFailureContext.ProviderId`. Core, Console and Files have implemented and published the coordinated contract. Any future destination-specific deferred persistence failure observer requires a separate decision.
 
 ## 4. Common Provider Contract
 
@@ -144,7 +140,7 @@ Mapping must preserve the semantic meaning of the Core `LogEntry`.
 
 Console and Files use the normalized `LogEntry` directly as their source representation. They do not introduce a separate persistence/domain model merely for abstraction symmetry.
 
-ElasticSearch and EntityFramework are expected to require explicit destination models or mappings, but their detailed design remains pending.
+Any future provider requiring destination-specific models or mappings must establish those rules through an explicit architecture decision.
 
 ### 4.3 Failure boundary
 
@@ -173,12 +169,7 @@ builder.Services
     .AddLoggingFiles(options => { /* Files options */ });
 ```
 
-Future providers follow the same naming pattern:
-
-```text
-AddLoggingElasticSearch
-AddLoggingEntityFramework
-```
+Future approved providers, if any, follow the same `AddLoggingXxx` naming pattern.
 
 Each registration method owns registration of its provider implementation, options, and provider-internal dependencies. Consumers should not need to manually register the corresponding `ILogProvider` implementation.
 
@@ -190,8 +181,7 @@ The approved lifetimes currently are:
 
 - Console — Singleton.
 - Files — Singleton.
-- ElasticSearch — pending detailed architecture.
-- EntityFramework — pending detailed architecture; its persistence dependencies may affect lifetime selection.
+- Future providers — lifetime and dependency decisions require separate architectural approval.
 
 ### 4.7 Configuration lifetime
 
@@ -553,37 +543,15 @@ A new configuration takes effect through a new provider/application lifecycle.
 
 ---
 
-## 7. ElasticSearch Provider — Current Boundary
+## 7. Future Destinations — Not Currently Approved
 
-The approved project and package identities are:
+The approved provider catalog currently contains Console and Files only. Elasticsearch may be deployed as a separate indexing and search backend fed by log collectors (for example, Fluent Bit) consuming Console or Files output. This does not imply a direct `Hm.Logging.Providers.ElasticSearch` package or commit the project to build one.
 
-```text
-Hm.Logging.Providers.ElasticSearch
-HDev.Hm.Logging.Providers.ElasticSearch
-```
+A direct destination provider requires a new architectural decision based on measured operational needs, including throughput, buffering, failure semantics, cost, and deployment constraints.
 
-Its role is to send normalized HM Logging entries to Elasticsearch as a centralized searchable/indexed destination. It may be used directly by an application or later by `Hm.Logging.Service`; Service is not a prerequisite.
+## 8. Future Persistence Providers — Not Currently Approved
 
-The provider does not provision or operate Elasticsearch infrastructure.
-
-An explicit destination-document mapping is expected, but index strategy, configuration, lifecycle, batching, client dependencies, retry behavior, failure semantics beyond the common provider boundary, and other destination-specific decisions remain open. They require a dedicated architecture session before implementation.
-
----
-
-## 8. EntityFramework Provider — Current Boundary
-
-The approved project and package identities are:
-
-```text
-Hm.Logging.Providers.EntityFramework
-HDev.Hm.Logging.Providers.EntityFramework
-```
-
-Its role is persistence through Entity Framework Core while allowing the consuming application to choose the EF Core database provider/engine.
-
-Database schema migration and database lifecycle are outside the provider's responsibility. The consuming application or a future `Hm.Logging.Service` deployment owns migration execution and schema lifecycle.
-
-An explicit persistence mapping is expected. Dynamic normalized metadata will require a persistence representation suitable for the selected database model, but the exact schema, metadata storage representation, `DbContext` integration, provider lifetime, transaction behavior, and related persistence decisions remain open. They require a dedicated architecture session before implementation.
+An Entity Framework provider is not currently approved or planned for implementation. A future relational persistence provider, if needed, requires an independent architecture decision and must not be conflated with business audit persistence.
 
 ---
 
@@ -679,7 +647,7 @@ The current Providers baseline establishes these invariants:
 8. Provider lifetime is selected per destination; Singleton is not universal.
 9. Provider packages are independently consumable and independently versioned.
 10. Console and Files have defined provider-specific architecture under the common provider-family rules.
-11. ElasticSearch and EntityFramework detailed provider-specific architecture is not defined by this baseline and requires explicit architectural decisions.
+11. Only Console and Files belong to the currently approved provider catalog; future destinations require explicit architectural decisions.
 12. Implementation details must not silently become new ecosystem semantics.
 13. Provider Delivery is release-unit-specific and fail-closed; only explicitly enabled provider prefixes may publish.
 14. `main` is publicable state and `develop` integrates only the provider currently under development.
@@ -699,8 +667,7 @@ This document records the current architectural model only. Implementation statu
 
 The following items are deliberately open and must not be inferred from implementation convenience:
 
-- detailed ElasticSearch architecture;
-- detailed EntityFramework architecture;
+- architecture for any future provider explicitly approved on demonstrated requirements;
 - any future dependency policy that would intentionally permit one provider to depend on another;
 - any future provider-specific retry behavior;
 - any future hot-reload requirement.
@@ -713,4 +680,4 @@ These open items do not alter the provider-family architecture or the provider-s
 
 The `Hm.Logging.Providers` solution architecture and common provider responsibilities are defined. Console and Files have provider-specific architecture defined under that common model.
 
-ElasticSearch and EntityFramework remain members of the provider catalog with established identity and responsibility boundaries, but their detailed provider-specific architecture is not defined by this baseline. This document is the canonical place to incorporate those decisions when they are explicitly established.
+Elasticsearch and Entity Framework are not committed provider implementations. External Elasticsearch ingestion may be implemented through log forwarding without a native provider. Any future provider must be approved on demonstrated requirements and documented here before implementation.

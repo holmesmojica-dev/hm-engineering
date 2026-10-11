@@ -2,14 +2,14 @@
 
 ## 1. Purpose and authority
 
-This architecture defines approved generic Core provider identity, selective dispatch, and failure-observability behavior. It extends the existing local logging pipeline without changing the technology-independent HM Logging domain, distributed Logging Flow semantics, or provider-specific destination policies. **Status: approved design; implementation and publication pending (9 October 2026).**
+This architecture defines approved generic Core provider identity, selective dispatch, and failure-observability behavior. It extends the existing local logging pipeline without changing the technology-independent HM Logging domain, distributed Logging Flow semantics, or provider-specific destination policies. **Status: approved architecture; implemented and published in Core, Console and Files (11 October 2026).**
 
 ## 2. Responsibilities and independence
 
-- Core orchestrates `ILogProvider` instances through abstractions; it must not reference concrete Console, Files, ElasticSearch, EntityFramework, or consumer-specific provider implementations.
+- Core orchestrates `ILogProvider` instances through abstractions; it must not reference concrete Console, Files, future destination, or consumer-specific provider implementations.
 - Providers own destination-specific writes and their own `IServiceCollection` registration extensions (`AddLoggingXxx`); Core does not register or construct concrete providers.
 - The existing Core pipeline remains responsible for filtering, scope/context merging, validation, normalization, cancellation, dispatch, isolation, and failure diagnostics.
-- Selective routing is a general Core capability, not an ElasticSearch integration feature.
+- Selective routing is a general Core capability, not a destination-specific integration feature.
 
 ## 3. Provider identity
 
@@ -37,16 +37,16 @@ This architecture defines approved generic Core provider identity, selective dis
 - Remove `ProviderType` from this context in the new Core contract. This is an intentional source/API compatibility break requiring coordinated consumer updates and an appropriate new prerelease.
 - `ProviderFailureCallback` remains a Core-level mechanism for exceptions arising from the provider write invocation/admission. It is **not** used for unknown target identifiers or configuration errors.
 - Cancellation semantics remain unchanged: cancellation-related `OperationCanceledException` is propagated rather than reported as an ordinary provider failure.
-- Destination-specific deferred persistence failure events (including any future ElasticSearch observer) are **not** defined here; their contract will be designed with that provider. Do not assume `ProviderFailureContext` is suitable for deferred persistence failures.
+- Destination-specific deferred persistence failure events (including any future destination-specific observer) are **not** defined here; their contract must be designed with that provider if approved. Do not assume `ProviderFailureContext` is suitable for deferred persistence failures.
 
 ## 6. Compatibility, rollout and acceptance
 
-- This architecture is approved but not yet implemented or released. Existing published Core and Providers packages retain their actual public contracts until updated.
-- Implement Core and test identity uniqueness, empty/unknown selections, duplicate requests, multiple instances of one implementation, unchanged default routing, failure callback identity, normalization, and cancellation.
-- Update affected provider implementations and registration extensions (including Console and Files), and consumers such as Ancestral API, after the Core contract change is available. Coordinate package versions; do not imply updates have already occurred.
+- This architecture is implemented and published in `HDev.Hm.Logging.Core`, `HDev.Hm.Logging.Providers.Console`, and `HDev.Hm.Logging.Providers.Files`. Contracts and distributed Logging Flows remain unchanged.
+- The Core implementation includes identity validation and selective routing; its test suite covers the established dispatch, validation, failure, normalization and cancellation semantics.
+- Console and Files registration extensions implement the provider identity contract. Consumer migration (including Ancestral API, where applicable) is a separate consumer-specific verification task; do not infer migration from package publication.
 - Preserve independent provider package ownership and release/versioning; do not alter Contracts or distributed Logging Flow semantics.
 
-## 7. Open implementation details
+## 7. Implementation notes and future evolution
 
-- Exact overload signature and DI implementation mechanism, including how automatically assigned identifiers are exposed when needed, are implementation details to validate against current Core/Providers source without changing the approved semantics.
-- Exact exception types for invalid configuration or unknown targets are to be selected during Core implementation; the mandated behavior is to throw, not to invoke the failure callback.
+- The public overload and DI behavior are implemented; consult the current published API and provider documentation for exact C# signatures. Automatically generated identifiers remain instance-scoped and must not be assumed stable across process restarts.
+- Exact exception types are defined by the current Core implementation; the architectural invariant remains that invalid configuration and unknown targets throw rather than invoking the failure callback.

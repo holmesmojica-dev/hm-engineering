@@ -321,3 +321,11 @@ The remaining open items belong to the distributed runtime / `Hm.Logging.Service
 ## 21. Current Architectural Baseline
 
 This document is the current baseline for distributed logging architecture. Contracts v1 wire-level decisions and compatibility rules are defined by `docs/architecture/logging/contracts-architecture.md`. Remaining open architecture items are Service/runtime concerns. Later implementation details may refine operational behavior, but changes to the established invariants above should be treated as explicit architectural decisions rather than incidental code changes.
+
+## 22. Provider Identity and Destination Alignment (11 October 2026)
+
+Core provider identity and selective routing are implemented and published in Core, Console and Files. `Guid ProviderId` identifies a registered provider instance; Core supports default all-provider dispatch and optional selection of registered destination IDs. This local capability does not change `FlowId`, distributed Logging Flow lifecycle, Contracts v1, or Service ownership of remote Flow state.
+
+Console and Files are the approved destination providers. Elasticsearch can be used as an external indexing/search backend through log forwarding without requiring a native HM provider. Neither a direct Elasticsearch provider nor an Entity Framework provider is currently committed. Any additional destination provider requires a separate architectural decision.
+
+The future Service may compose Core and providers, but queueing, resilience, Flow ownership, concurrency, persistence, and horizontal scaling remain Service/runtime design concerns, not responsibilities of Files or Console.
