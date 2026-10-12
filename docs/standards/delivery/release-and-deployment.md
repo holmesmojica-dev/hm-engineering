@@ -41,7 +41,9 @@ can establish all applicable guarantees:
 4. that commit is eligible for Delivery because the mandatory Main gate passed;
 5. `ReleaseVersion`, source commit, tag, and planned artifact identities are
    coherent;
-6. no existing immutable publication conflicts with the intended release.
+6. no existing immutable publication conflicts with the intended release;
+7. the source commit has not already been assigned to a different release identity
+   in the same repository, including a release of another release unit.
 
 The resulting release identity is:
 
@@ -52,7 +54,26 @@ that same release identity.
 
 ---
 
-### 3.1 Multi-release-unit repositories
+### 3.1 One source commit, at most one release
+
+A repository source commit MUST be associated with at most one public release
+identity. A new release tag MUST NOT create a distinct release from a commit
+already associated with another release tag or version in that repository.
+
+This constraint applies equally to repositories with one release unit and
+repositories with independently versioned release units. A release-unit-qualified
+tag does not exempt the source commit from this uniqueness rule. Multiple
+artifacts or publication channels MAY participate in the **same** release
+identity, but they MUST NOT be treated as separate releases of that commit.
+
+Delivery preflight MUST fail closed when it detects a conflicting release
+assignment. Retrying or resuming the **same** release identity remains allowed,
+including recovery from partially completed publications. Existing published
+release tags and their source-commit associations MUST remain immutable.
+
+---
+
+### 3.2 Multi-release-unit repositories
 
 When independently versioned artifacts share one repository, Delivery MUST fail closed on release-unit selection. The repository MUST define an explicit mapping from each enabled release-unit identifier to the artifact/package identity it may publish. Unknown, disabled, malformed, or ambiguous release-unit identifiers MUST publish nothing.
 
